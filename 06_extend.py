@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Inference
+# MAGIC # Extend
 # COMMAND ----------
 
 print('Hello, Databricks')

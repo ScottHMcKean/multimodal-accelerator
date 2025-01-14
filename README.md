@@ -10,11 +10,25 @@ Manufacturing, energy, and utility companies have an enormous amount of unstruct
 Databricks can help by providing a platform with open data, scaled compute, and a high degree of flexibility when using open source packages and foundation models. This solution accelerator provides an opinionated quickstart for multimodal document extraction, search and agent evaluation, and end user interactions. It is an end to end proof of concept for empowering teams to work better with complex engineering documents.
 
 ## Reference Architecture
-Our solution is divided into four main components: ingest, extract, featurize, and infer. We also use Databricks Apps to provide a basic user inferface for the solution.
+Our solution is divided into four main components: ingest, extract, featurize, and infer. We also use Databricks Apps to provide a basic user inferface for the solution. We then provide some examples of how to extend the solution with other tools.
 
 <img src="assets/Multimodal Reference Architecture.svg" width="800px">
 
-Each component is implemented as a Databricks notebook. The user interface is implemented as a Databricks App. The solution is also designed to be extended to a train component as well as other microservices like PI&D analysis in the future.
+## Table of Contents
+
+Each solution component is implemented as a Databricks notebook. 
+
+1. Ingest: Ingest the documents from a source and store them in volumes and delta tables.
+
+2. Extract: Use layout analysis to extract and parse text, tables, images, and metadata from the documents.
+
+3. Featurize: Featurize this information for vector search and retrieval.
+
+4. Inference: Use a foundation model and agent framework to search and extract information from the documents.
+
+5. Interface: Provide a basic user interface for interacting with the agent and gathering feedback.
+
+6. Iterate: Show how we can extend the solution to more complex engineering documents like P&ID diagrams.
 
 ## Authors
 <scott.mckean@databricks.com>
