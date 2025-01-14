@@ -1,6 +1,4 @@
-from dbmma.main import get_taxis, get_spark
+from dbmma.main import add
 
-
-def test_main():
-    taxis = get_taxis(get_spark())
-    assert taxis.count() > 5
+def test_add():
+    assert add(1, 2) == 3
