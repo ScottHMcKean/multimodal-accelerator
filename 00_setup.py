@@ -21,9 +21,7 @@ SCHEMA = 'multimodal'
 # USER INFO
 USERNAME = dbutils.notebook.entry_point.getDbutils().notebook().getContext().tags().apply('user')
 
-SETUP_PATH = dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get()
-
-REPO_NAME = SETUP_PATH.split("/")[-2]
+ROOT_PATH = "/".join(dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get().split('/')[:-1])
 
 # DOCLING SETTINGS
 IMAGE_RESOLUTION_SCALE = 2.0
@@ -31,6 +29,35 @@ BRONZE_PATH = 'docs_bronze'
 SILVER_PATH = 'docs_silver'
 GOLD_PATH = 'docs_gold'
 
+# CHUNK SETTINGS
+CHUNK_MAX_TOKENS = 250
+
 # COMMAND ----------
 
+import logging
 
+# Configure logger
+logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
+log = logging.getLogger(__name__)
+
+# COMMAND ----------
+
+# Ensure volumes are ready
+from databricks.sdk import WorkspaceClient
+w = WorkspaceClient()
+
+try:
+    w.catalogs.create(name=CATALOG)
+except:
+    log.info(f"{CATALOG} catalog exists")
+
+try:
+    w.schemas.create(name=SCHEMA)
+except:
+    log.info(f"{SCHEMA} catalog exists")
+
+for volume_name in [BRONZE_PATH, SILVER_PATH, GOLD_PATH]:
+    try:
+        w.volumes.create(catalog_name=CATALOG, schema_name=SCHEMA, name=volume_name)
+    except:
+        log.info(f"{volume_name} volume exists")

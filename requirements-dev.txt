@@ -1,5 +1,6 @@
 ## requirements-dev.txt: dependencies for local development.
 docling>=2.15.0
+openai>=1.35.0
 pytest
 setuptools
 wheel

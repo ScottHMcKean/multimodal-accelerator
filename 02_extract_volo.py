@@ -96,49 +96,127 @@ result.document.save_as_markdown(
 # MAGIC Now we are going to extract labelled pages, images, and tables for further metadata capture. We want to be systematic here so we can reference when we move to chunking and retrieval, which is why we want to use a framework like Docling. We are going to save each item as a file, but capture the location and metadata in a table.
 # MAGIC
 # MAGIC We use the webp format because it is smaller and less lossy compared to png and jpeg, which should improve our app performance.
-# MAGIC
-# MAGIC We can also leverage language models to describe each page. To do this we use OpenAI GPT4o.
-# MAGIC We use the rule of thumb that 1 tokens is ~ 0.75 words and prompt the model to limit the description to the same number of words as our max token limit for our chunks. This means that each table, page, and figure can be added as a single description for vector search.
+
+# COMMAND ----------
+
+def capture_page_metadata(page, output_dir, doc_name, client):
+  
 
 # COMMAND ----------
 
 # Extract page images and descriptions
 from openai import OpenAI
-from dbmma.doc_metadata import capture_page_metadata, save_page_image
+# from dbmma.llm import get_open_ai_image_description
 
 client = OpenAI(api_key = dbutils.secrets.get('shm','gpt4o'))
 
 page_metadata = []
-for _, page in list(result.document.pages.items())[:2]:
-    page_entry = capture_page_metadata(page, output_dir, doc_name, client)
+for _, page in result.document.pages.items():
+    page_dir = output_dir / doc_name / 'pages'
+    page_dir.mkdir(exist_ok=True, parents=True)
+
+    page_image_path = page_dir / f"{page.page_no}.webp"
+    
+    description = get_open_ai_image_description(
+      client, 
+      page.image.pil_image, 
+      image_type='page', 
+      max_tokens=200
+      )
+
+    page_entry = {
+      'output_dir': output_dir,
+      'doc_name': doc_name,
+      'page_no': page.page_no,
+      'size': page.size,
+      'img_path': str(page_image_path),
+    }
+    
+    with page_image_path.open("wb") as fp:
+        page.image.pil_image.save(fp, format="webp", quality=100)
+
     page_metadata.append(page_entry)
-    save_page_image(page, output_dir, doc_name)
 
 # COMMAND ----------
 
-import pandas as pd
-pd.DataFrame(page_metadata)
+from pathlib import PosixPath
+from pyspark.sql import Row
+
+# Convert PosixPath to string
+page_metadata = [
+    Row(**{k: str(v) if isinstance(v, PosixPath) else v for k, v in row.items()})
+    for row in page_metadata
+]
+
+# Create DataFrame
+df = spark.createDataFrame(page_metadata)
+display(df)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC We now move on to tables - trying to ensure that we match the order of the tables within the document so we can trace them back properly. 
+# MAGIC We use the rule of thumb that 1 tokens is ~ 0.75 words and prompt the model to limit the description to the same number of words as our max token limit for our chunks. This means that each table, page, and figure can be added as a single description for vector search.
 
 # COMMAND ----------
 
-from dbmma.doc_metadata import capture_table_metadata, save_table_image
+from dbmma.llm import get_open_ai_image_description
 
-table_metadata = []
-for table in result.document.tables:
-    table_entry = capture_table_metadata(table, output_dir, doc_name, client)
-    table_metadata.append(table_entry)
-    save_table_image(table, output_dir)
+get_open_ai_image_description(client, page.image.pil_image, image_type='page', max_tokens=200)
 
 # COMMAND ----------
 
-pd.DataFrame(table_metadata)
+from dbmma.utils import encode_pil_image_to_base64
+from openai import OpenAI
+from PIL import Image
+
+
+
+def get_open_ai_image_description(
+    client: OpenAI, 
+    image: Image.Image, 
+    image_type:str='page', 
+    max_tokens=200
+    ):
+    assert image_type in ['page', 'table', 'figure']
+    
+    img_bytes = encode_pil_image_to_base64(page.image.pil_image)
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Describe the contents of this {image_type}. Keep the response within {max_tokens} words",
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{img_bytes}"},
+                    },
+                ],
+            }
+        ],
+        max_tokens=max_tokens
+    )
+    return response.choices[0].message.content
 
 # COMMAND ----------
+
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC We can also leverage language models to describe each page. To do this we use OpenAI GPT4o.
+
+# COMMAND ----------
+
+# Save page images
+output_dir = Path(f'/Volumes/{CATALOG}/{SCHEMA}/{SILVER_PATH}')
+doc_name = test_path.stem
+
 
 
 table_dir = output_dir / doc_name / 'tables'
