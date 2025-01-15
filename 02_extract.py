@@ -23,6 +23,12 @@
 
 # COMMAND ----------
 
+import pandas as pd
+from pathlib import Path
+from pyspark.sql.types import StructType, StructField, StringType, ArrayType, IntegerType, MapType, FloatType, DoubleType
+
+# COMMAND ----------
+
 from docling_core.types.doc import ImageRefMode, PictureItem, TableItem
 from docling.datamodel.base_models import FigureElement, InputFormat, Table
 from docling.datamodel.pipeline_options import PdfPipelineOptions
@@ -44,9 +50,13 @@ doc_converter = DocumentConverter(
 
 # COMMAND ----------
 
-from pathlib import Path
-test_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/01-0571-0011_Rev06_07-07.pdf")
-result = doc_converter.convert(test_path)
+# MAGIC %md
+# MAGIC Here we convert a single document using Docling. We are working on scaling and benchmarking this against other tools.
+
+# COMMAND ----------
+
+doc_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/01-0571-0011_Rev06_07-07.pdf")
+result = doc_converter.convert(doc_path)
 
 # COMMAND ----------
 
@@ -78,7 +88,7 @@ result = doc_converter.convert(test_path)
 
 # Save document as markdown
 output_dir = Path(f'/Volumes/{CATALOG}/{SCHEMA}/{SILVER_PATH}')
-doc_name = test_path.stem
+doc_name = doc_path.stem
 
 result.document.save_as_markdown(
   output_dir / doc_name / f"markdown-with-image-refs.md", 
@@ -96,6 +106,11 @@ result.document.save_as_markdown(
 # MAGIC Now we are going to extract labelled pages, images, and tables for further metadata capture. We want to be systematic here so we can reference when we move to chunking and retrieval, which is why we want to use a framework like Docling. We are going to save each item as a file, but capture the location and metadata in a table.
 # MAGIC
 # MAGIC We use the webp format because it is smaller and less lossy compared to png and jpeg, which should improve our app performance.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Pages
 # MAGIC
 # MAGIC We can also leverage language models to describe each page. To do this we use OpenAI GPT4o.
 # MAGIC We use the rule of thumb that 1 tokens is ~ 0.75 words and prompt the model to limit the description to the same number of words as our max token limit for our chunks. This means that each table, page, and figure can be added as a single description for vector search.
@@ -104,75 +119,199 @@ result.document.save_as_markdown(
 
 # Extract page images and descriptions
 from openai import OpenAI
-from dbmma.doc_metadata import capture_page_metadata, save_page_image
+from dbmma.metadata import capture_page_metadata, save_page_image
 
 client = OpenAI(api_key = dbutils.secrets.get('shm','gpt4o'))
 
 page_metadata = []
+page_dir = output_dir / doc_name / 'pages'
+page_dir.mkdir(exist_ok=True, parents=True)
+
 for _, page in list(result.document.pages.items())[:2]:
-    page_entry = capture_page_metadata(page, output_dir, doc_name, client)
+    page_entry = capture_page_metadata(page, page_dir, doc_name, client)
     page_metadata.append(page_entry)
-    save_page_image(page, output_dir, doc_name)
+    save_page_image(page, page_dir)
 
 # COMMAND ----------
 
-import pandas as pd
-pd.DataFrame(page_metadata)
+page_meta_df = pd.DataFrame(page_metadata)
+page_meta_df
+
+# COMMAND ----------
+
+page_meta_schema = StructType([
+    StructField("doc_name", StringType(), False),
+    StructField("ref", StringType(), False),
+    StructField("type", StringType(), True),
+    StructField("page_no", IntegerType(), True),
+    StructField("size", StructType([
+        StructField("width", DoubleType(), True),
+        StructField("height", DoubleType(), True)
+    ]), True),
+    StructField("img_path", StringType(), True),
+    StructField("description", StringType(), True)
+])
+
+page_meta = spark.createDataFrame(page_meta_df, page_meta_schema)
+(
+  page_meta.write
+  .mode('overwrite')
+  .option("mergeSchema", "true")
+  .saveAsTable("shm.multimodal.page_metadata")
+)
+display(page_meta)
 
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Tables
 # MAGIC We now move on to tables - trying to ensure that we match the order of the tables within the document so we can trace them back properly. 
 
 # COMMAND ----------
 
-from dbmma.doc_metadata import capture_table_metadata, save_table_image
+from dbmma.metadata import capture_table_metadata, save_table_image
 
 table_metadata = []
-for table in result.document.tables:
+table_dir = output_dir / doc_name / 'tables'
+table_dir.mkdir(exist_ok=True, parents=True)
+
+for table in result.document.tables[0:3]:
     table_entry = capture_table_metadata(table, output_dir, doc_name, client)
     table_metadata.append(table_entry)
     save_table_image(table, output_dir)
 
 # COMMAND ----------
 
-pd.DataFrame(table_metadata)
+table_meta_df = pd.DataFrame(table_metadata)
+table_meta_df 
 
 # COMMAND ----------
 
+table_meta_schema = StructType([
+    StructField("doc_name", StringType(), False),
+    StructField("ref", StringType(), False),
+    StructField("type", StringType(), True),
+    StructField("parent", StringType(), True),
+    StructField("page_no", IntegerType(), True),
+    StructField("bbox", StructType([
+        StructField("l", DoubleType(), True),
+        StructField("t", DoubleType(), True),
+        StructField("r", DoubleType(), True),
+        StructField("b", DoubleType(), True)
+    ]), True),
+    StructField("caption_ref", StringType(), True),
+    StructField("caption_index", IntegerType(), True),
+    StructField("caption_text", StringType(), True),
+    StructField("img_path", StringType(), True),
+    StructField("description", StringType(), True)
+])
 
-table_dir = output_dir / doc_name / 'tables'
-table_dir.mkdir(exist_ok=True, parents=True)
-
-picture_dir = output_dir / doc_name / 'pictures'
-picture_dir.mkdir(exist_ok=True, parents=True)
-
-
-
-# Save images of figures and tables
-table_counter = 0
-picture_counter = 0
-for element, _level in result.document.iterate_items():
-    if isinstance(element, TableItem):
-        table_counter += 1
-        element_image_filename = table_dir / f"table-{table_counter}.png"
-        with element_image_filename.open("wb") as fp:
-            element.get_image(result.document).save(fp, "PNG")
-
-    if isinstance(element, PictureItem):
-        picture_counter += 1
-        element_image_filename = picture_dir / f"picture-{picture_counter}.png"
-        with element_image_filename.open("wb") as fp:
-            element.get_image(result.document).save(fp, "PNG")
-
-# Save markdown with embedded pictures (as binary)
-md_filename = output_dir / doc_name / f"markdown-with-images.md"
-result.document.save_as_markdown(md_filename, image_mode=ImageRefMode.EMBEDDED)
-
-# Save markdown with externally referenced pictures
-md_filename = output_dir / doc_name / f"markdown-with-image-refs.md"
-result.document.save_as_markdown(md_filename, image_mode=ImageRefMode.REFERENCED)
+table_meta = spark.createDataFrame(table_meta_df, table_meta_schema)
+(
+  table_meta.write
+  .mode('overwrite')
+  .saveAsTable("shm.multimodal.table_metadata")
+)
+display(table_meta)
 
 # COMMAND ----------
 
+from dbmma.metadata import capture_picture_metadata, save_picture_image
 
+pic_metadata = []
+pic_dir = output_dir / doc_name / 'pictures'
+pic_dir.mkdir(exist_ok=True, parents=True)
+
+for picture in result.document.pictures[0:3]:
+    pic_entry = capture_picture_metadata(picture, pic_dir, doc_name, client)
+    pic_metadata.append(pic_entry)
+    save_picture_image(picture, pic_dir)
+
+# COMMAND ----------
+
+pic_meta_df = pd.DataFrame(pic_metadata)
+pic_meta_df
+
+# COMMAND ----------
+
+pic_meta_schema = StructType([
+    StructField("doc_name", StringType(), False),
+    StructField("ref", StringType(), False),
+    StructField("type", StringType(), True),
+    StructField("parent", StringType(), True),
+    StructField("page_no", IntegerType(), True),
+    StructField("bbox", StructType([
+        StructField("l", DoubleType(), True),
+        StructField("t", DoubleType(), True),
+        StructField("r", DoubleType(), True),
+        StructField("b", DoubleType(), True)
+    ]), True),
+    StructField("caption_ref", StringType(), True),
+    StructField("caption_index", IntegerType(), True),
+    StructField("caption_text", StringType(), True),
+    StructField("img_path", StringType(), True),
+    StructField("description", StringType(), True)
+])
+
+pic_meta = spark.createDataFrame(pic_meta_df, pic_meta_schema)
+(
+  pic_meta.write
+  .mode('overwrite')
+  .saveAsTable("shm.multimodal.picture_metadata")
+)
+display(pic_meta)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Text Chunking
+# MAGIC Docling does an excellent job of organizing text. It also provides a hierarchical chunker we can use to prepare the bulk of our document for vector search. We will then take the page, table, and picture metadata with descriptions and augment the standard text information for vector search.
+# MAGIC
+# MAGIC We now have a fully extracted DoclingDocument that can be used for downstream analysis. Let's use the hierarchical parser to chunk one of the documents in the table and compare against the markdown format. We will load a MiniLM tokenizer to control the max tokens.
+
+# COMMAND ----------
+
+from docling.chunking import HybridChunker
+
+chunker = HybridChunker(tokenizer="sentence-transformers/all-MiniLM-L6-v2")
+chunk_iter = chunker.chunk(
+  dl_doc=result.document,
+  max_tokens=200)
+chunks = list(chunk_iter)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC The hybrid chunker seems to do a good job of keep heading and page based separations. Pages with limited or no text still maintain seperate chunks. Also, it keeps metadata about headings, captions, etc. (see chunk 57), as well as image and table content (see chunk 24). This makes the resultant outputs after parsing huge, but they are all there.
+
+# COMMAND ----------
+
+from dbmma.chunk import process_chunk
+processed_chunks = [process_chunk(chunk.model_dump()) for chunk in chunks]
+processed_chunks[0]
+
+# COMMAND ----------
+
+# Define the schema
+chunk_schema = StructType([
+    StructField('text', StringType(), True),
+    StructField('filename', StringType(), True),
+    StructField('heading', StringType(), True),
+    StructField('caption', StringType(), True),
+    StructField('items', ArrayType(MapType(StringType(), StringType())), True),
+    StructField('parents', ArrayType(StringType()), True),
+    StructField('pages', ArrayType(IntegerType()), True)
+])
+
+chunk_df = spark.createDataFrame(processed_chunks, schema=chunk_schema)
+(
+  chunk_df.write
+  .mode('overwrite')
+  .saveAsTable("shm.multimodal.processed_chunks")
+)
+display(chunk_df)
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC We have context aware chunks with metadata, a full markdown representation, and the ability to store all of those in volumes or a delta table. We now move on to featurization to build a better representation of the document using the ordering established by docling, the text chunks, and the image, table, and page metadata. 

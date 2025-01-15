@@ -32,10 +32,6 @@ display(doc_paths)
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 #TODO: Add example and router for loading blob and/or volumes
 import requests
 from pathlib import Path

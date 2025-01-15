@@ -8,7 +8,7 @@ def get_open_ai_image_description(
     image_type:str='page', 
     max_tokens:int=200
     ):
-    assert image_type in ['page', 'table', 'figure']
+    assert image_type in ['page', 'table', 'picture']
     
     img_bytes = encode_pil_image_to_base64(image)
 

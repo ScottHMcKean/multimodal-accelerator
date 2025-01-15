@@ -1,6 +1,9 @@
 ## requirements-dev.txt: dependencies for local development.
 docling>=2.15.0
 openai>=1.35.0
+databricks_langchain>=0.1.0
+databricks-vectorsearch>=0.44
+mlflow>=2.4.0
 pytest
 setuptools
 wheel
