@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC Installing dev requirements, initializing globals, adding dbmma path
+# MAGIC Installing dev requirements, initializing globals, adding maud path
 
 # COMMAND ----------
 

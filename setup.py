@@ -3,7 +3,7 @@ setup.py configuration script describing how to build and package this project.
 
 This file is primarily used by the setuptools library and typically should not
 be executed directly. See README.md for how to deploy, test, and run
-the dbmma project.
+the MAUD project.
 """
 from setuptools import setup, find_packages
 
@@ -11,21 +11,21 @@ import sys
 sys.path.append('./src')
 
 import datetime
-import dbmma
+import maud
 
 setup(
-    name="dbmma",
+    name="maud",
     # We use timestamp as Local version identifier (https://peps.python.org/pep-0440/#local-version-identifiers.)
     # to ensure that changes to wheel package are picked up when used on all-purpose clusters
-    version=dbmma.__version__ + "+" + datetime.datetime.utcnow().strftime("%Y%m%d.%H%M%S"),
+    version=maud.__version__ + "+" + datetime.datetime.utcnow().strftime("%Y%m%d.%H%M%S"),
     url="https://databricks.com",
     author="scott.mckean@databricks.com",
-    description="wheel file based on dbmma/src",
+    description="wheel file based on maud/src",
     packages=find_packages(where='./src'),
     package_dir={'': 'src'},
     entry_points={
         "packages": [
-            "main=dbmma.main:main"
+            "main=maud.main:main"
         ]
     },
     install_requires=[

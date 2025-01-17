@@ -27,8 +27,8 @@ import pandas as pd
 from pathlib import Path
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType, IntegerType, MapType, FloatType, DoubleType
 from importlib import reload
-import dbmma
-reload(dbmma)
+import maud
+reload(maud)
 
 # COMMAND ----------
 
@@ -268,7 +268,7 @@ result.document.save_as_markdown(
 
 # Extract page images and descriptions
 from openai import OpenAI
-from dbmma.metadata import capture_page_metadata, save_page_image
+from maud.metadata import capture_page_metadata, save_page_image
 
 client = OpenAI(api_key = dbutils.secrets.get('shm','gpt4o'))
 
@@ -318,7 +318,7 @@ display(page_meta)
 
 # COMMAND ----------
 
-from dbmma.metadata import capture_table_metadata, save_table_image
+from maud.metadata import capture_table_metadata, save_table_image
 
 table_metadata = []
 table_dir = output_dir / doc_name / 'tables'
@@ -365,7 +365,7 @@ display(table_meta)
 
 # COMMAND ----------
 
-from dbmma.metadata import capture_picture_metadata, save_picture_image
+from maud.metadata import capture_picture_metadata, save_picture_image
 
 pic_metadata = []
 pic_dir = output_dir / doc_name / 'pictures'
@@ -435,7 +435,7 @@ chunks = list(chunk_iter)
 
 # COMMAND ----------
 
-from dbmma.chunk import process_chunk
+from maud.chunk import process_chunk
 processed_chunks = [process_chunk(chunk.model_dump()) for chunk in chunks]
 processed_chunks[0]
 

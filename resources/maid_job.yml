@@ -1,8 +1,8 @@
-# The main job for dbmma.
+# The main job for MAUD.
 resources:
   jobs:
-    dbmma_job:
-      name: dbmma_job
+    maud_job:
+      name: maud_job
 
       schedule:
         # Run every day at 8:37 AM
@@ -17,10 +17,10 @@ resources:
         - task_key: main_task
           job_cluster_key: job_cluster
           python_wheel_task:
-            package_name: dbmma
+            package_name: maud
             entry_point: main
           libraries:
-            # By default we just include the .whl file generated for the dbmma package.
+            # By default we just include the .whl file generated for the maud package.
             # See https://docs.databricks.com/dev-tools/bundles/library-dependencies.html
             # for more information on how to add other libraries.
             - whl: ../dist/*.whl

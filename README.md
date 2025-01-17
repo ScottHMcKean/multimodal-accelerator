@@ -1,5 +1,7 @@
 <img src=https://raw.githubusercontent.com/databricks-industry-solutions/.github/main/profile/solacc_logo.png width="600px">
 
+# Multimodal Analysis of Unstructured Documents: Manufacturing Solution Accelerator
+
 [![DBR](https://img.shields.io/badge/DBR-15.4_LTS_ML-red?logo=databricks&style=for-the-badge)](https://docs.databricks.com/release-notes/runtime/CHANGE_ME.html)
 [![CLOUD](https://img.shields.io/badge/CLOUD-AZURE-blue?logo=googlecloud&style=for-the-badge)](https://databricks.com/try-databricks)
 

@@ -1,7 +1,7 @@
-# This is a Databricks asset bundle definition for dbmma.
+# This is a Databricks asset bundle definition for maud.
 # See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
 bundle:
-  name: dbmma
+  name: maud
 
 include:
   - resources/*.yml
