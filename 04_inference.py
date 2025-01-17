@@ -146,7 +146,3 @@ retrieval_qa_chain({"question":"What parts are in the parts reference list?"})
 
 output = retrieval_qa_chain({"question":"What bombardier planes is this equipment good for?"})
 output['result']
-
-# COMMAND ----------
-
-

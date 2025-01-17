@@ -88,6 +88,7 @@ display(combined)
 
 from mlflow.models import ModelConfig
 from databricks.vector_search.client import VectorSearchClient
+from dbmma.vector_search import index_exists
 
 config = ModelConfig(development_config='config.yml')
 vs_endpoint = config.get("vs_endpoint")
@@ -95,17 +96,23 @@ vs_index_name = config.get("vs_index_name")
 vs_source_table = config.get("vs_combined_chunks_table")
 client = VectorSearchClient()
 
+# COMMAND ----------
+
+if index_exists(client, vs_endpoint, vs_index_name):
+    index = client.get_index(vs_endpoint, vs_index_name)
+    index.sync()
+else:
+    index = client.create_delta_sync_index(
+        endpoint_name=vs_endpoint,
+        source_table_name=vs_source_table,
+        index_name=vs_index_name,
+        pipeline_type="TRIGGERED",
+        primary_key="id",
+        embedding_source_column="text",
+        embedding_model_endpoint_name="databricks-gte-large-en",
+        columns_to_sync=["filename", "pages", "type", "ref", "img_path"]
+    )
 
 # COMMAND ----------
 
-# Get the vector search index
-# index = client.create_delta_sync_index(
-#     endpoint_name=vs_endpoint,
-#     source_table_name=vs_source_table,
-#     index_name=vs_index_name,
-#     pipeline_type="TRIGGERED",
-#     primary_key="id",
-#     embedding_source_column="text",
-#     embedding_model_endpoint_name="databricks-gte-large-en",
-#     columns_to_sync=["filename", "pages", "type", "ref", "img_path"]
-# )
+

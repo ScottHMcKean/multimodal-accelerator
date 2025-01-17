@@ -12,7 +12,7 @@ Databricks can help by providing a platform with open data, scaled compute, and 
 ## Reference Architecture
 Our solution is divided into four main components: ingest, extract, featurize, and infer. We also use Databricks Apps to provide a basic user inferface for the solution. We then provide some examples of how to extend the solution with other tools.
 
-<img src="assets/Multimodal Reference Architecture.svg" width="800px">
+<img src="assets/Multimodal Reference Architecture.png" width="800px">
 
 ## Table of Contents
 
@@ -20,11 +20,11 @@ Each solution component is implemented as a Databricks notebook.
 
 1. Ingest: Ingest the documents from a source and store them in volumes and delta tables.
 
-2. Extract: Use layout analysis to extract and parse text, tables, images, and metadata from the documents.
+2. Convert: Use layout analysis to extract and parse text, tables, images, and metadata from the documents.
 
-3. Featurize: Featurize this information for vector search and retrieval.
+3. Feature: Feature engineer a useful vector representation of the documents for search and retrieval.
 
-4. Inference: Use a foundation model and agent framework to search and extract information from the documents.
+4. Infer: Use a foundation model and agent framework to search and extract information from the documents.
 
 5. Interface: Provide a basic user interface for interacting with the agent and gathering feedback.
 
@@ -49,5 +49,6 @@ Any issues discovered through the use of this project should be filed as GitHub 
 | library                                | description             | license    | source                                              |
 |----------------------------------------|-------------------------|------------|-----------------------------------------------------|
 |docling|Document parsing and export|MIT|https://github.com/docling/docling|
+|markitdown|Document parsing and export|MIT|https://github.com/microsoft/markitdown|
 
 Docling has quite a few dependencies: python-bidi, pyclipper, mpmath, filetype, XlsxWriter, typing-extensions, tqdm, tifffile, tabulate, sympy, soupsieve, shellingham, Shapely, scipy, safetensors, rtree, rpds-py, regex, pyyaml, python-dotenv, pypdfium2, pygments, pyflakes, pillow, opencv-python-headless, ninja, networkx, mdurl, MarkupSafe, marko, lxml, lazy-loader, jsonref, fsspec, filelock, et-xmlfile, dill, deepsearch-glm, click, attrs, annotated-types, referencing, python-pptx, python-docx, pydantic-core, openpyxl, multiprocess, mpire, markdown-it-py, jsonlines, jinja2, imageio, huggingface_hub, beautifulsoup4, autoflake, torch, tokenizers, scikit-image, rich, pydantic, jsonschema-specifications, docling-parse, typer, transformers, torchvision, semchunk, pydantic-settings, jsonschema, easyocr, docling-ibm-models, docling-core, docling

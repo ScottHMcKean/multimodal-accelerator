@@ -1,3 +1,5 @@
+from pyspark.sql.types import StructType, StructField, StringType, ArrayType, IntegerType, MapType, FloatType, DoubleType
+
 def get_unique_entries(input_list):
     return list(set(input_list))
   
@@ -32,3 +34,13 @@ def process_chunk(chunk):
         'parents': process_chunk_parents(chunk),
         'pages': process_chunk_pages(chunk)
     }
+
+chunk_schema = StructType([
+    StructField('text', StringType(), True),
+    StructField('filename', StringType(), True),
+    StructField('heading', StringType(), True),
+    StructField('caption', StringType(), True),
+    StructField('items', ArrayType(MapType(StringType(), StringType())), True),
+    StructField('parents', ArrayType(StringType()), True),
+    StructField('pages', ArrayType(IntegerType()), True)
+])

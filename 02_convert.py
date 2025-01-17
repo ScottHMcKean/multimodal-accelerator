@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Extract
+# MAGIC # Convert
 # MAGIC
 # MAGIC This module processes our bronze documents. It is the most involved of the modules but we leverage Docling as a framework to abstract away the layout analysis of a document. Docling takes a list of files in the volumes, parallelized over workers.
 # MAGIC
@@ -18,45 +18,123 @@
 
 # COMMAND ----------
 
+#override bronze path
+BRONZE_PATH = 'mine_docs_bronze'
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC This section runs through the parsing and export of a single document. This takes a while since we are OCRing, extracting images, and analyzing the layout of each document. Docling provides a nice framework for exporting these documents as markdown files, both with linked and embedded images. This makes the downstream take of summarizing and converting images to text much easier, where we can even replace the images with a list of symbols references, description, caption etc.
 
 # COMMAND ----------
 
-import pandas as pd
-from pathlib import Path
-from pyspark.sql.types import StructType, StructField, StringType, ArrayType, IntegerType, MapType, FloatType, DoubleType
+# MAGIC %md
+# MAGIC ### Setup Docling Converter Options
 
 # COMMAND ----------
+
+import pandas as pd
+from pathlib import Path
 
 from docling_core.types.doc import ImageRefMode, PictureItem, TableItem
 from docling.datamodel.base_models import FigureElement, InputFormat, Table
 from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.document import DoclingDocument
+from docling.document_converter import (
+    DocumentConverter,
+    PdfFormatOption,
+    WordFormatOption,
+)
+from docling.pipeline.simple_pipeline import SimplePipeline
 
 # setup the conversion pipeline to extract images and tables automatically
-pipeline_options = PdfPipelineOptions()
-pipeline_options.images_scale = IMAGE_RESOLUTION_SCALE
-pipeline_options.generate_page_images = True
-pipeline_options.generate_picture_images = True
-pipeline_options.generate_table_images = True
+pdf_pipe_options = PdfPipelineOptions()
+pdf_pipe_options.images_scale = IMAGE_RESOLUTION_SCALE
+pdf_pipe_options.generate_page_images = True
+pdf_pipe_options.generate_picture_images = True
+pdf_pipe_options.generate_table_images = True
 
-doc_converter = DocumentConverter(
-    format_options={
-        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-    }
-)
+# TODO: remove ugly monkey chain for .ppt and .doc files - check for security risk with legacy format?
+setattr(InputFormat, 'PPT', InputFormat.PPTX)
+
+docling_allowed_formats=[
+    InputFormat.PDF,
+    InputFormat.DOCX,
+    InputFormat.PPTX,
+    InputFormat.PPT,
+    InputFormat.XLSX
+]
+
+docling_format_options={
+    InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipe_options),
+    InputFormat.DOCX: WordFormatOption(pipeline_cls=SimplePipeline)
+}
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Here we convert a single document using Docling. We are working on scaling and benchmarking this against other tools.
+# MAGIC This accelerator provides an abstraction for the converter module. Since converters are evolving so quickly and have important complexity, latency, cost, and throughput tradeoffs, no one converter is going to work for everyone. We therefor use a factory pattern 
+# MAGIC
+# MAGIC This design provides several benefits:
+# MAGIC - Unified Interface: The AbstractConverter class defines a common interface for all converters, with convert() and get_result() methods.
+# MAGIC - Adapter Pattern: Each specific converter (Docling and Markitdown) is wrapped in an adapter class that implements the AbstractConverter interface.
+# MAGIC - Encapsulation: The differences in the original converter interfaces and result formats are hidden behind the adapter classes.
+# MAGIC - Factory Pattern: The ConverterFactory class provides a simple way to create the appropriate converter based on a type string.
 
 # COMMAND ----------
 
-doc_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/01-0571-0011_Rev06_07-07.pdf")
-result = doc_converter.convert(doc_path)
+from openai import OpenAI
+from pathlib import Path
+import time
+from dbmma.metadata import save_page_metadata, save_table_metadata, save_picture_metadata
+from dbmma.converters import DoclingConverterAdapter
+
+client = OpenAI(api_key = dbutils.secrets.get('shm','gpt4o'))
+
+# COMMAND ----------
+
+#iterative on files from the bronze path
+files = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}").glob('*')
+types = ['.xlsx', '.docx', '.pptx','.pdf']
+filenames = [file.name for file in files if file.suffix in types]
+
+iter_results = {}
+for filename in filenames:
+    start_time = time.time()
+    print(filename)
+    input_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/{filename}")
+    output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{SILVER_PATH}")
+    converter = DoclingConverterAdapter(
+      input_path, 
+      output_dir,
+      allowed_formats=docling_allowed_formats,
+      format_options=docling_format_options
+    )
+
+    # convert document
+    document = converter.convert()
+    converter.save_result()
+    
+    # get descriptions for pages, tables, and figures
+    # page_metadata = save_page_metadata(document, client, converter._output_path, converter._input_hash)
+    # table_metadata = save_table_metadata(document, client, converter._output_path, converter._input_hash)
+    # picture_metadata = save_picture_metadata(document, client, converter._output_path, converter._input_hash)
+
+    result_summary = {
+        'input_path': input_path,
+        'input_hash': converter._input_hash,
+        'output_dir': converter._output_path,
+        'document': document,
+        # 'page_meta': page_metadata,
+        # 'table_meta': table_metadata,
+        # 'picture_meta': picture_metadata
+    }
+    iter_results[converter._input_hash] = result_summary
+    print(f"time(s): {round(time.time() - start_time, 1)}")
+
+# COMMAND ----------
+
+iter_results['b1ac23c4378dcbd5121ff2aa06eb9d53']['document'].tables[1]
 
 # COMMAND ----------
 
@@ -86,22 +164,6 @@ result = doc_converter.convert(doc_path)
 
 # COMMAND ----------
 
-# Save document as markdown
-output_dir = Path(f'/Volumes/{CATALOG}/{SCHEMA}/{SILVER_PATH}')
-doc_name = doc_path.stem
-
-result.document.save_as_markdown(
-  output_dir / doc_name / f"markdown-with-image-refs.md", 
-  image_mode=ImageRefMode.REFERENCED
-  )
-  
-result.document.save_as_markdown(
-  output_dir / doc_name / f"markdown-with-images.md", 
-  image_mode=ImageRefMode.EMBEDDED
-  )
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC Now we are going to extract labelled pages, images, and tables for further metadata capture. We want to be systematic here so we can reference when we move to chunking and retrieval, which is why we want to use a framework like Docling. We are going to save each item as a file, but capture the location and metadata in a table.
 # MAGIC
@@ -117,40 +179,16 @@ result.document.save_as_markdown(
 
 # COMMAND ----------
 
-# Extract page images and descriptions
-from openai import OpenAI
-from dbmma.metadata import capture_page_metadata, save_page_image
+page_meta_combined = []
+for k,v in iter_results.items():
+  page_meta_combined = page_meta_combined + v['page_meta']
 
-client = OpenAI(api_key = dbutils.secrets.get('shm','gpt4o'))
-
-page_metadata = []
-page_dir = output_dir / doc_name / 'pages'
-page_dir.mkdir(exist_ok=True, parents=True)
-
-for _, page in list(result.document.pages.items())[:2]:
-    page_entry = capture_page_metadata(page, page_dir, doc_name, client)
-    page_metadata.append(page_entry)
-    save_page_image(page, page_dir)
-
-# COMMAND ----------
-
-page_meta_df = pd.DataFrame(page_metadata)
+page_meta_df = pd.DataFrame(page_meta_combined)
 page_meta_df
 
 # COMMAND ----------
 
-page_meta_schema = StructType([
-    StructField("doc_name", StringType(), False),
-    StructField("ref", StringType(), False),
-    StructField("type", StringType(), True),
-    StructField("page_no", IntegerType(), True),
-    StructField("size", StructType([
-        StructField("width", DoubleType(), True),
-        StructField("height", DoubleType(), True)
-    ]), True),
-    StructField("img_path", StringType(), True),
-    StructField("description", StringType(), True)
-])
+from dbmma.metadata import page_meta_schema, table_meta_schema
 
 page_meta = spark.createDataFrame(page_meta_df, page_meta_schema)
 (
@@ -169,42 +207,14 @@ display(page_meta)
 
 # COMMAND ----------
 
-from dbmma.metadata import capture_table_metadata, save_table_image
-
-table_metadata = []
-table_dir = output_dir / doc_name / 'tables'
-table_dir.mkdir(exist_ok=True, parents=True)
-
-for table in result.document.tables[0:3]:
-    table_entry = capture_table_metadata(table, output_dir, doc_name, client)
-    table_metadata.append(table_entry)
-    save_table_image(table, output_dir)
-
-# COMMAND ----------
+table_meta_combined = []
+for k,v in iter_results.items():
+  table_meta_combined = table_meta_combined + v['table_meta']
 
 table_meta_df = pd.DataFrame(table_metadata)
 table_meta_df 
 
 # COMMAND ----------
-
-table_meta_schema = StructType([
-    StructField("doc_name", StringType(), False),
-    StructField("ref", StringType(), False),
-    StructField("type", StringType(), True),
-    StructField("parent", StringType(), True),
-    StructField("page_no", IntegerType(), True),
-    StructField("bbox", StructType([
-        StructField("l", DoubleType(), True),
-        StructField("t", DoubleType(), True),
-        StructField("r", DoubleType(), True),
-        StructField("b", DoubleType(), True)
-    ]), True),
-    StructField("caption_ref", StringType(), True),
-    StructField("caption_index", IntegerType(), True),
-    StructField("caption_text", StringType(), True),
-    StructField("img_path", StringType(), True),
-    StructField("description", StringType(), True)
-])
 
 table_meta = spark.createDataFrame(table_meta_df, table_meta_schema)
 (
@@ -216,50 +226,28 @@ display(table_meta)
 
 # COMMAND ----------
 
-from dbmma.metadata import capture_picture_metadata, save_picture_image
-
-pic_metadata = []
-pic_dir = output_dir / doc_name / 'pictures'
-pic_dir.mkdir(exist_ok=True, parents=True)
-
-for picture in result.document.pictures[0:3]:
-    pic_entry = capture_picture_metadata(picture, pic_dir, doc_name, client)
-    pic_metadata.append(pic_entry)
-    save_picture_image(picture, pic_dir)
+# MAGIC %md
+# MAGIC ## Pictures
 
 # COMMAND ----------
 
-pic_meta_df = pd.DataFrame(pic_metadata)
+pic_meta_combined = []
+for k,v in iter_results.items():
+  pic_meta_combined = pic_meta_combined + v.get('picture_meta', [])
+
+pic_meta_df = pd.DataFrame(pic_meta_combined)
 pic_meta_df
 
 # COMMAND ----------
 
-pic_meta_schema = StructType([
-    StructField("doc_name", StringType(), False),
-    StructField("ref", StringType(), False),
-    StructField("type", StringType(), True),
-    StructField("parent", StringType(), True),
-    StructField("page_no", IntegerType(), True),
-    StructField("bbox", StructType([
-        StructField("l", DoubleType(), True),
-        StructField("t", DoubleType(), True),
-        StructField("r", DoubleType(), True),
-        StructField("b", DoubleType(), True)
-    ]), True),
-    StructField("caption_ref", StringType(), True),
-    StructField("caption_index", IntegerType(), True),
-    StructField("caption_text", StringType(), True),
-    StructField("img_path", StringType(), True),
-    StructField("description", StringType(), True)
-])
-
-pic_meta = spark.createDataFrame(pic_meta_df, pic_meta_schema)
-(
-  pic_meta.write
-  .mode('overwrite')
-  .saveAsTable("shm.multimodal.picture_metadata")
-)
-display(pic_meta)
+if pic_meta_combined is not None:
+  pic_meta = spark.createDataFrame(pic_meta_df, table_meta_schema)
+  (
+    pic_meta.write
+    .mode('overwrite')
+    .saveAsTable("shm.multimodal.picture_metadata")
+  )
+  display(pic_meta)
 
 # COMMAND ----------
 
@@ -271,13 +259,21 @@ display(pic_meta)
 
 # COMMAND ----------
 
-from docling.chunking import HybridChunker
+from docling.chunking import HybridChunker, HierarchicalChunker
+from dbmma.chunk import process_chunk
 
 chunker = HybridChunker(tokenizer="sentence-transformers/all-MiniLM-L6-v2")
-chunk_iter = chunker.chunk(
-  dl_doc=result.document,
-  max_tokens=200)
-chunks = list(chunk_iter)
+
+combined_processed_chunks = []
+for key, result in iter_results.items():
+  chunk_iter = chunker.chunk(dl_doc=result['document'],max_tokens=200)
+  processed_chunks = []
+  for chunk in chunk_iter:
+    try:
+        processed_chunks.append(process_chunk(chunk.model_dump()))
+    except:
+        continue
+  combined_processed_chunks = combined_processed_chunks + processed_chunks
 
 # COMMAND ----------
 
@@ -286,24 +282,10 @@ chunks = list(chunk_iter)
 
 # COMMAND ----------
 
-from dbmma.chunk import process_chunk
-processed_chunks = [process_chunk(chunk.model_dump()) for chunk in chunks]
-processed_chunks[0]
-
-# COMMAND ----------
-
 # Define the schema
-chunk_schema = StructType([
-    StructField('text', StringType(), True),
-    StructField('filename', StringType(), True),
-    StructField('heading', StringType(), True),
-    StructField('caption', StringType(), True),
-    StructField('items', ArrayType(MapType(StringType(), StringType())), True),
-    StructField('parents', ArrayType(StringType()), True),
-    StructField('pages', ArrayType(IntegerType()), True)
-])
+from dbmma.chunk import chunk_schema
 
-chunk_df = spark.createDataFrame(processed_chunks, schema=chunk_schema)
+chunk_df = spark.createDataFrame(combined_processed_chunks, schema=chunk_schema)
 (
   chunk_df.write
   .mode('overwrite')
