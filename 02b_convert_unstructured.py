@@ -1,16 +1,27 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Convert
+# MAGIC # Convert (Unstructured OSS)
 # MAGIC
-# MAGIC This module processes our bronze documents. It is the most involved of the modules but we leverage Docling as a framework to abstract away the layout analysis of a document. Docling takes a list of files in the volumes, parallelized over workers.
+# MAGIC We now do our conversion using Unstructured.IO open source. Unstructured is a Databricks partner and can massively accelerate document extraction. 
 # MAGIC
-# MAGIC In order to make this result useful downstream, we need to do three things:
+# MAGIC * Official documentation: https://docs.unstructured.io/open-source/core-functionality/partitioning#partition-pdf
+# MAGIC * Unstructured.IO Open Source: https://docs.unstructured.io/open-source/introduction/overview
+# MAGIC * Partitioning strategies: https://docs.unstructured.io/open-source/concepts/partitioning-strategies
+# MAGIC * Sample data: https://github.com/Unstructured-IO/unstructured/blob/main/example-docs/embedded-images-tables.pdf
 # MAGIC
-# MAGIC - Export the result to a reloadable json format
-# MAGIC - Save and export the images
-# MAGIC - Save and export the tables
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Key Concepts In Conversion
+# MAGIC - Preserve the semantic structure of the documents
+# MAGIC - Normalize data from various file formats and document types
+# MAGIC - Chunking forms 'composite elements' that combine 'atomic elements'
+# MAGIC - Keep a globally unique element id to establish hierarchy and lineage
+# MAGIC - TODO: Establish a SHA-256 hash in our abstract class in the same way as unstructured and use as a primary key: In Unstructured by default, the element ID is a SHA-256 hash of the element’s text, its position on the page, page number it’s on, and the name of the document file 
+# MAGIC - Keep metadata across all converters: filename, file_directory, last_modified, filetype, coordinates (bbox), parent_id (hierarchy), etc.
 # MAGIC
-# MAGIC In order to get the exports, we can modify the defaults and generate page, picture, and table images. This really slows down the parsing pipeline, but is essential for our user interface to reload and serve everything.
+# MAGIC
 
 # COMMAND ----------
 
@@ -18,7 +29,7 @@
 
 # COMMAND ----------
 
-!pip install markitdown
+!pip install unstructured["all-docs"] unstructured
 
 # COMMAND ----------
 
@@ -27,63 +38,60 @@ BRONZE_PATH = 'mine_docs_bronze'
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC This section runs through the parsing and export of a single document. This takes a while since we are OCRing, extracting images, and analyzing the layout of each document. Docling provides a nice framework for exporting these documents as markdown files, both with linked and embedded images. This makes the downstream take of summarizing and converting images to text much easier, where we can even replace the images with a list of symbols references, description, caption etc.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Setup Docling Converter Options
-
-# COMMAND ----------
-
-import pandas as pd
+#iterative on files from the bronze path
 from pathlib import Path
+files = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}").glob('*')
+types = ['.pdf']#, '.xslx', '.docx', '.pptx','.pdf']
+filenames = [file.name for file in files if file.suffix in types]
+filename = filenames[0]
+input_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/{filename}")
 
-from docling_core.types.doc import ImageRefMode, PictureItem, TableItem
-from docling.datamodel.base_models import FigureElement, InputFormat, Table
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.datamodel.document import DoclingDocument
-from docling.document_converter import (
-    DocumentConverter,
-    PdfFormatOption,
-    WordFormatOption,
-)
-from docling.pipeline.simple_pipeline import SimplePipeline
+# COMMAND ----------
 
-# setup the conversion pipeline to extract images and tables automatically
-pdf_pipe_options = PdfPipelineOptions()
-pdf_pipe_options.images_scale = IMAGE_RESOLUTION_SCALE
-pdf_pipe_options.generate_page_images = True
-pdf_pipe_options.generate_picture_images = True
-pdf_pipe_options.generate_table_images = True
-
-# TODO: remove ugly monkey chain for .ppt and .doc files - check for security risk with legacy format?
-setattr(InputFormat, 'PPT', InputFormat.PPTX)
-
-docling_allowed_formats=[
-    InputFormat.PDF,
-    InputFormat.DOCX,
-    InputFormat.PPTX,
-    InputFormat.PPT,
-    InputFormat.XLSX
-]
-
-docling_format_options={
-    InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipe_options),
-    InputFormat.DOCX: WordFormatOption(pipeline_cls=SimplePipeline)
-}
+from unstructured.partition.pdf import partition_pdf
+from unstructured.staging.base import convert_to_dict
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC This accelerator provides an abstraction for the converter module. Since converters are evolving so quickly and have important complexity, latency, cost, and throughput tradeoffs, no one converter is going to work for everyone. We therefor use a factory pattern 
+# MAGIC ## Fast Parsing
 # MAGIC
-# MAGIC This design provides several benefits:
-# MAGIC - Unified Interface: The AbstractConverter class defines a common interface for all converters, with convert() and get_result() methods.
-# MAGIC - Adapter Pattern: Each specific converter (Docling and Markitdown) is wrapped in an adapter class that implements the AbstractConverter interface.
-# MAGIC - Encapsulation: The differences in the original converter interfaces and result formats are hidden behind the adapter classes.
-# MAGIC - Factory Pattern: The ConverterFactory class provides a simple way to create the appropriate converter based on a type string.
+# MAGIC Fast but naive parsing of only texts.
+# MAGIC > The “rule-based” strategy leverages traditional NLP extraction techniques to quickly pull all the text elements. “Fast” strategy is not recommended for image-based file types.
+
+# COMMAND ----------
+
+elements_fast = partition_pdf(
+    input_path,
+    strategy="fast",
+)
+
+elements_fast
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC For more go here: https://docs.unstructured.io/open-source/concepts/document-elements
+
+# COMMAND ----------
+
+elements_fast_dict = convert_to_dict(elements_fast)
+elements_fast_dict[0]
+
+# COMMAND ----------
+
+from markitdown import MarkItDown
+
+md = MarkItDown()
+result = md.convert(str(input_path))
+
+# COMMAND ----------
+
+?result
+
+# COMMAND ----------
+
+result.__dir__
 
 # COMMAND ----------
 
