@@ -1,0 +1,55 @@
+[tool.poetry]
+name = "maud"
+version = "0.0.2"
+description = "MAUD (Multimodal Analysis of Unstructured Documents) Solution Accelerator"
+authors = [
+    "Scott McKean <scott.mckean@databricks.com>",
+    "Volodymyr Vragov <volodymyr.vragov@databricks.com>",
+    "Kyra Wulfert <kyra.wulfert@databricks.com>"
+]
+readme = "README.md"
+packages = [{include = "maud", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pyyaml = "^6.0.1"
+databricks-langchain = "*"
+databricks-sdk = "*"
+databricks-vectorsearch = "^0.44"
+docling = "^2.15.0"
+gradio = "^5.12"
+mlflow = "^2.4.0"
+openai = "^1.35.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-cov = "^4.1.0"
+black = "^24.1.0"
+flake8 = "^7.0.0"
+mypy = "^1.8.0"
+isort = "^5.13.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--cov=src/maud --cov-report=term-missing" 
