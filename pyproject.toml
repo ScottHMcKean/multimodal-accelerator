@@ -19,6 +19,8 @@ databricks-vectorsearch = "^0.44"
 docling = "^2.15.0"
 gradio = "^5.12"
 mlflow = "^2.4.0"
+numpy = "^1.26.0"
+transformers = "^4.42"
 openai = "^1.35.0"
 
 [tool.poetry.group.dev.dependencies]
