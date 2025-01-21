@@ -1,6 +1,6 @@
-from .llm import get_open_ai_image_description
+from .foundation_models import get_open_ai_image_description
 from pathlib import Path
-from pyspark.sql.types import StructType, StructField, StringType, ArrayType, IntegerType, MapType, FloatType, DoubleType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType
 
 def clean_bbox(bbox_entry):
     """
@@ -64,11 +64,6 @@ def capture_table_metadata(table, table_dir, doc_name, client):
     except:
         cap_index = -1
 
-    try:
-        cap_text = result.document.texts[int(table.captions[0].cref.split("/")[-1])].text
-    except:
-        cap_text = ""
-
     table_entry = {
         "doc_name": doc_name,
         "ref": table.self_ref,
@@ -78,7 +73,6 @@ def capture_table_metadata(table, table_dir, doc_name, client):
         "bbox": clean_bbox(dict(table.prov[0].bbox)),
         "caption_ref": cap_ref,
         "caption_index": cap_index,
-        "caption_text": cap_text,
         'img_path': str(table_image_path),
         "description": description
     }
@@ -113,11 +107,6 @@ def capture_picture_metadata(picture, pic_dir, doc_name, client):
     except:
         cap_index = -1
 
-    try:
-        cap_text = result.document.texts[int(picture.captions[0].cref.split("/")[-1])].text
-    except:
-        cap_text = ""
-
     picture_entry = {
         "doc_name": doc_name,
         "ref": picture.self_ref,
@@ -127,7 +116,6 @@ def capture_picture_metadata(picture, pic_dir, doc_name, client):
         "bbox": clean_bbox(dict(picture.prov[0].bbox)),
         "caption_ref": cap_ref,
         "caption_index": cap_index,
-        "caption_text": cap_text,
         "img_path": str(pic_image_path),
         "description": description
     }

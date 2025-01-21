@@ -9,7 +9,7 @@
 import os
 import yaml
 import os
-from maud.interface.app import demo
+from maud.interfaces.app import demo
 
 
 def load_config(config_path="src/maud/app.yaml"):
