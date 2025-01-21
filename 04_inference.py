@@ -24,7 +24,7 @@ from databricks_langchain.vectorstores import DatabricksVectorSearch
 from databricks_langchain.chat_models import ChatDatabricks
 
 mlflow.langchain.autolog()
-config = ModelConfig(development_config='config.yml')
+config = ModelConfig(development_config='src/maud/config/default/agent_config.yaml')
 
 # COMMAND ----------
 
@@ -35,13 +35,12 @@ config = ModelConfig(development_config='config.yml')
 
 # COMMAND ----------
 
-llm_max_tokens = config.get("llm_max_tokens")
-llm_temperature = config.get("llm_temperature")
+llm_config = config.get("llm")
 
 chat_model = ChatDatabricks(
-    endpoint="databricks-meta-llama-3-3-70b-instruct", 
-    max_tokens=llm_max_tokens, 
-    temperature=llm_temperature
+    endpoint=llm_config.get("endpoint_name"), 
+    max_tokens=llm_config.get("max_tokens"), 
+    temperature=llm_config.get("temperature")
     )
 
 # COMMAND ----------
@@ -53,34 +52,38 @@ chat_model = ChatDatabricks(
 
 # COMMAND ----------
 
-vs_endpoint = config.get("vs_endpoint")
-vs_index_name = config.get("vs_index_name")
-score_threshold = config.get('score_threshold')
-num_results = config.get('num_results')
+vs_config.get("other_columns")
 
-def get_retriever(persist_dir: str = None):
-    vector_search = DatabricksVectorSearch(
-        index_name=vs_index_name,
-        columns=['id', 'filename', 'img_path', 'pages', 'text', 'type']
-        )
+# COMMAND ----------
+
+vs_config = config.get("vector_search")
+
+vector_search = DatabricksVectorSearch(
+    endpoint=vs_config.get("endpoint_name"),
+    index_name=vs_config.get("index_name"),
+    columns=[
+        vs_config.get('primary_key'), 
+        vs_config.get('text_column'), 
+        vs_config.get('doc_uri')
+    ] + vs_config.get("other_columns", [])
+)
     
-    return vector_search.as_retriever(
-        search_type="similarity_score_threshold", 
-        search_kwargs={
-            'k': num_results, 
-            "score_threshold": score_threshold,
-            'query_type': 'hybrid'
-            }
-    )
-
-vs_retriever = get_retriever()
+vs_retriever = vector_search.as_retriever(
+    search_type=vs_config.get("search_type"), 
+    search_kwargs={
+        'k': vs_config.get('num_results'), 
+        "score_threshold": vs_config.get('score_threshold'),
+        'query_type': vs_config.get('query_type')
+        }
+)
 
 mlflow.models.set_retriever_schema(
-    primary_key='id',
-    text_column='content',
-    doc_uri='img_path',
+    primary_key= vs_config.get('primary_key'),
+    text_column= vs_config.get('text_column'),
+    doc_uri= vs_config.get('doc_uri'),
     name="vs_index",
 )
+
 
 # COMMAND ----------
 
@@ -94,65 +97,47 @@ vs_retriever.invoke('Reference Parts List')
 
 # COMMAND ----------
 
-retrieval_template = config.get("retrieval_prompt")
-
 prompt = PromptTemplate(
-    template=retrieval_template, 
+    template=config.get("retrieval_prompt"), 
     input_variables=["context", "question"]
     )
 
-def get_filtered_retriever(filters:dict = {}):
-    retriever = get_retriever()
-    retriever.search_kwargs["filters"] = filter
-    return retriever
+retrieval_chain = RetrievalQA.from_chain_type(
+    llm=chat_model,
+    chain_type="stuff",
+    retriever=vs_retriever,
+    return_source_documents=True,
+    chain_type_kwargs={"prompt": prompt}
+)
 
-def retrieval_qa_chain(inputs):
-    question = inputs["question"]
-    filtered_retriever = get_retriever()
-    
-    # Define the RetrievalQA chain with the filtered retriever
-    retrieval_chain = RetrievalQA.from_chain_type(
-        llm=chat_model,
-        chain_type="stuff",
-        retriever=filtered_retriever,
-        return_source_documents=True,
-        chain_type_kwargs={"prompt": prompt}
-    )
-    # Run the retrieval chain
-    output = retrieval_chain({"query": question})
-    # Return the outputs
-    return output
+mlflow.models.set_model(retrieval_chain)
 
 # COMMAND ----------
 
-result = retrieval_qa_chain(
-  {"question":"Should I use shear protection when towing an aircraft?"}
+result = retrieval_chain(
+  {"query":"Should I use shear protection when towing an aircraft?"}
   )
-result
+print(result['result'])
+result['source_documents']
 
 # COMMAND ----------
 
-result['result']
+[x.metadata['img_path'] for x in result['source_documents']]
 
 # COMMAND ----------
 
-result['source_documents'][0]
-
-# COMMAND ----------
-
-retrieval_qa_chain({"question":"What parts are in the parts reference list?"})
-
-# COMMAND ----------
-
-output = retrieval_qa_chain({"question":"What bombardier planes is this equipment good for?"})
-output['result']
-
-# COMMAND ----------
 # MAGIC %md
-# MAGIC ## Agent
+# MAGIC ## Agent Driver
 # MAGIC Now we can deploy this agent as a serving endpoint to use within our interface
 
 # COMMAND ----------
+
+from mlflow.models import infer_signature
+input = {"query":"Should I use shear protection when towing an aircraft?"}
+signature = infer_signature(input, retrieval_chain(input))
+
+# COMMAND ----------
+
 import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.types import Schema, ColSpec
@@ -162,27 +147,21 @@ from mlflow.models.resources import (
     DatabricksServingEndpoint,
 )
 
+
 with mlflow.start_run():
     # Set the registry URI to Unity Catalog if needed
     mlflow.set_registry_uri('databricks-uc')
 
     # Define the list of Databricks resources needed to serve the agent
     list_of_databricks_resources = [
-        DatabricksServingEndpoint(endpoint_name="shm-gpt-4o-mini"),
-        DatabricksVectorSearchIndex(index_name="shm-vs-index"),
+        DatabricksServingEndpoint(endpoint_name=llm_config.get("endpoint_name")),
+        DatabricksVectorSearchIndex(index_name=vs_config.get("index_name")),
     ]
-
-    # Define the custom signature
-    input_schema = Schema([
-        ColSpec("string", "recipe"),
-        ColSpec("long", "customer_count")
-    ])
-    output_schema = Schema([ColSpec("string")])
-    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
     # Log the model in MLflow with the signature  
     logged_agent_info = mlflow.langchain.log_model(
-        lc_model="./agent.py",
+        lc_model="src/maud/agent/agent.py",
+        model_config='src/maud/config/default/agent_config.yaml',
         artifact_path="model",
         pip_requirements=[
             "langchain==0.3.13",
@@ -191,10 +170,50 @@ with mlflow.start_run():
             "databricks-langchain==0.1.1"
         ],
         resources=list_of_databricks_resources, 
-        signature=signature)
-
-    uc_model_info = mlflow.register_model(
-        model_uri=logged_agent_info.model_uri, 
-        name="shm.default.mlflow_example")
+        signature=signature,
+        registered_model_name="shm.multimodal.retrieval_agent",
+        )
 
     print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Test the reloaded model before deploying
+
+# COMMAND ----------
+
+reloaded = mlflow.langchain.load_model("models:/shm.multimodal.retrieval_agent/1")
+result = reloaded.invoke({"query":"Should I use shear protection when towing an aircraft?"})
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Deploy 
+# MAGIC Now we deploy the model
+
+# COMMAND ----------
+
+from mlflow.deployments import get_deploy_client
+client = get_deploy_client("databricks")
+
+# Deploy the model to serving
+deploy_name = "maud-agent"
+model_name = "shm.multimodal.retrieval_agent"
+model_version = 1
+
+endpoint = client.create_endpoint(
+    name=f"{deploy_name}_{model_version}",
+    config={
+        "served_entities": [{
+            "entity_name": model_name,
+            "entity_version": model_version,
+            "workload_size": "Small",
+            "scale_to_zero_enabled": True
+        }]
+        }
+)
+
+# COMMAND ----------
+
+

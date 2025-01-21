@@ -1,5 +1,3 @@
-
-
 def index_exists(client, vs_endpoint, index_name):
     try:
         index_info = client.get_index(vs_endpoint, index_name)

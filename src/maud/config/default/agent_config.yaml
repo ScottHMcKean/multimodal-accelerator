@@ -1,6 +1,6 @@
 # Agent configuration
 llm:
-  endpoint: shm-gpt-4o-mini
+  endpoint_name: databricks-meta-llama-3-3-70b-instruct
   temperature: 0
   max_tokens: 400
 vector_search:
@@ -9,9 +9,15 @@ vector_search:
   index_name: shm.multimodal.multimodal_index
   num_results: 3
   score_threshold: 0.1
-prompts:
-  system_message: You are a helpful AI assistant...
-  retrieval: >
+  search_type: similarity_score_threshold
+  query_type: hybrid
+  primary_key: id
+  text_column: text
+  doc_uri: img_path
+  other_columns: 
+    - filename
+    - type
+retrieval_prompt: >
     You are a maintenance assistant. Use the documents in the context below to answer technical questions about aircraft maintenance on specific pieces of equipment. If you don't know the answer, just say that you don't know, don't try to make up an answer. Keep the answer concise, do not repeat the prompt.
 
     Use the following pieces of context from existing documents to answer the question at the end:
