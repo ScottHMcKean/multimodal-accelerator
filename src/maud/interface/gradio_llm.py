@@ -4,13 +4,16 @@ import logging
 import gradio as gr
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
+from maud.config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize the Databricks Workspace Client
 workspace_client = WorkspaceClient()
-serving_endpoint = 'shm-gpt-4o-mini'
+
+# Load configuration
+config = Config("app_config.yaml")
 
 def query_llm(message, history):
     """
@@ -33,9 +36,9 @@ def query_llm(message, history):
     messages.append(ChatMessage(role=ChatMessageRole.USER, content=message))
 
     try:
-        logger.info(f"Sending request to model endpoint: {serving_endpoint}")
+        logger.info(f"Sending request to model endpoint: {config.serving_endpoint}")
         response = workspace_client.serving_endpoints.query(
-            name=serving_endpoint,
+            name=config.serving_endpoint,
             messages=messages,
             max_tokens=400
         )
@@ -48,13 +51,9 @@ def query_llm(message, history):
 # Create Gradio interface
 demo = gr.ChatInterface(
     fn=query_llm,
-    title="Databricks LLM Chat",
-    description="Chat with a Databricks-hosted LLM model",
-    examples=[
-        ["What is machine learning?"],
-        ["Write a short poem about data science"],
-        ["Explain what a neural network is"],
-    ],
+    title=config.interface.title,
+    description=config.interface.description,
+    examples=config.interface.examples,
     type="messages"
 )
 

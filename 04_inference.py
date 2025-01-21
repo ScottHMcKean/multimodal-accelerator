@@ -146,3 +146,55 @@ retrieval_qa_chain({"question":"What parts are in the parts reference list?"})
 
 output = retrieval_qa_chain({"question":"What bombardier planes is this equipment good for?"})
 output['result']
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ## Agent
+# MAGIC Now we can deploy this agent as a serving endpoint to use within our interface
+
+# COMMAND ----------
+import mlflow
+from mlflow.tracking import MlflowClient
+from mlflow.types import Schema, ColSpec
+from mlflow.models.signature import infer_signature, ModelSignature
+from mlflow.models.resources import (
+    DatabricksVectorSearchIndex,
+    DatabricksServingEndpoint,
+)
+
+with mlflow.start_run():
+    # Set the registry URI to Unity Catalog if needed
+    mlflow.set_registry_uri('databricks-uc')
+
+    # Define the list of Databricks resources needed to serve the agent
+    list_of_databricks_resources = [
+        DatabricksServingEndpoint(endpoint_name="shm-gpt-4o-mini"),
+        DatabricksVectorSearchIndex(index_name="shm-vs-index"),
+    ]
+
+    # Define the custom signature
+    input_schema = Schema([
+        ColSpec("string", "recipe"),
+        ColSpec("long", "customer_count")
+    ])
+    output_schema = Schema([ColSpec("string")])
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+    # Log the model in MLflow with the signature  
+    logged_agent_info = mlflow.langchain.log_model(
+        lc_model="./agent.py",
+        artifact_path="model",
+        pip_requirements=[
+            "langchain==0.3.13",
+            "langchain-community==0.3.13",
+            "pydantic==2.10.4",
+            "databricks-langchain==0.1.1"
+        ],
+        resources=list_of_databricks_resources, 
+        signature=signature)
+
+    uc_model_info = mlflow.register_model(
+        model_uri=logged_agent_info.model_uri, 
+        name="shm.default.mlflow_example")
+
+    print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")

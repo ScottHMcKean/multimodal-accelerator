@@ -5,7 +5,7 @@ description = "MAUD (Multimodal Analysis of Unstructured Documents) Solution Acc
 authors = [
     "Scott McKean <scott.mckean@databricks.com>",
     "Volodymyr Vragov <volodymyr.vragov@databricks.com>",
-    "Kyra Wulfert <kyra.wulfert@databricks.com>"
+    "Kyra Wulffert <kyra.wulffert@databricks.com>"
 ]
 readme = "README.md"
 packages = [{include = "maud", from = "src"}]

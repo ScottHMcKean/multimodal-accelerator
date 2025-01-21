@@ -7,29 +7,34 @@ import os
 import re
 from PIL import Image
 import io
+from maud.config import Config
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize the Databricks Workspace Client
+# Load configuration
+config = Config("app_config.yaml")
+
+# Initialize clients
 workspace_client = WorkspaceClient()
 vs_client = VectorSearchClient()
 
 # Ensure environment variable is set correctly
 assert os.getenv('SERVING_ENDPOINT'), "SERVING_ENDPOINT must be set in app.yaml."
 
-def vector_search(query, vs_endpoint_name="vs-endpoint", index_name="vs-index"):
-    """
-    Perform vector search using Databricks Vector Search
-    """
+def vector_search(query, vs_endpoint_name=None, index_name=None):
+    """Perform vector search using Databricks Vector Search"""
+    vs_endpoint_name = vs_endpoint_name or config.vector_search.endpoint_name
+    index_name = index_name or config.vector_search.index_name
+    
     try:
         response = vs_client.get_index(
             endpoint_name=vs_endpoint_name,
             index_name=index_name
         ).similarity_search(
             query_text=query,
-            num_results=3
+            num_results=config.vector_search.num_results
         )
         return response.results
     except Exception as e:
