@@ -1,22 +1,22 @@
 import os
 import mlflow
+from operator import itemgetter
 from mlflow.models import ModelConfig
 
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
-from langchain.chains import TransformChain
-from langchain.chains import SequentialChain
-
+from langchain_core.runnables import RunnableLambda
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from databricks_langchain.vectorstores import DatabricksVectorSearch
 from databricks_langchain.chat_models import ChatDatabricks
 
-config = ModelConfig(development_config='src/maud/config/default/agent_config.yaml')
+config = ModelConfig(development_config='../configs/agent_config.yaml')
 
 # Foundation Model
 llm_config = config.get("llm")
 
-chat_model = ChatDatabricks(
+llm = ChatDatabricks(
     endpoint=llm_config.get("endpoint_name"), 
     max_tokens=llm_config.get("max_tokens"), 
     temperature=llm_config.get("temperature")
@@ -53,16 +53,11 @@ mlflow.models.set_retriever_schema(
 
 # Chain
 prompt = PromptTemplate(
-    template=config.get("retrieval_prompt"), 
-    input_variables=["context", "question"]
+    template=config.get("system_prompt"), 
+    input_variables=["context", "input"]
     )
 
-retrieval_chain = RetrievalQA.from_chain_type(
-    llm=chat_model,
-    chain_type="stuff",
-    retriever=vs_retriever,
-    return_source_documents=True,
-    chain_type_kwargs={"prompt": prompt}
-)
+combine_docs_chain = create_stuff_documents_chain(llm, prompt)
+rag_chain = create_retrieval_chain(vs_retriever, combine_docs_chain)
 
-mlflow.models.set_model(retrieval_chain)
+mlflow.models.set_model(rag_chain)

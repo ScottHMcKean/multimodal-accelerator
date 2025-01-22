@@ -12,19 +12,19 @@
 
 import os
 import mlflow
+from operator import itemgetter
 from mlflow.models import ModelConfig
 
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
-from langchain.chains import TransformChain
-from langchain.chains import SequentialChain
-
+from langchain_core.runnables import RunnableLambda
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from databricks_langchain.vectorstores import DatabricksVectorSearch
 from databricks_langchain.chat_models import ChatDatabricks
 
 mlflow.langchain.autolog()
-config = ModelConfig(development_config='src/maud/config/default/agent_config.yaml')
+config = ModelConfig(development_config='src/maud/configs/agent_config.yaml')
 
 # COMMAND ----------
 
@@ -37,7 +37,7 @@ config = ModelConfig(development_config='src/maud/config/default/agent_config.ya
 
 llm_config = config.get("llm")
 
-chat_model = ChatDatabricks(
+llm = ChatDatabricks(
     endpoint=llm_config.get("endpoint_name"), 
     max_tokens=llm_config.get("max_tokens"), 
     temperature=llm_config.get("temperature")
@@ -49,10 +49,6 @@ chat_model = ChatDatabricks(
 # MAGIC ## Retriever
 # MAGIC
 # MAGIC Let's setup the retriever
-
-# COMMAND ----------
-
-vs_config.get("other_columns")
 
 # COMMAND ----------
 
@@ -84,7 +80,6 @@ mlflow.models.set_retriever_schema(
     name="vs_index",
 )
 
-
 # COMMAND ----------
 
 vs_retriever.invoke('Reference Parts List')
@@ -98,43 +93,28 @@ vs_retriever.invoke('Reference Parts List')
 # COMMAND ----------
 
 prompt = PromptTemplate(
-    template=config.get("retrieval_prompt"), 
-    input_variables=["context", "question"]
+    template=config.get("system_prompt"), 
+    input_variables=["context", "input"]
     )
 
-retrieval_chain = RetrievalQA.from_chain_type(
-    llm=chat_model,
-    chain_type="stuff",
-    retriever=vs_retriever,
-    return_source_documents=True,
-    chain_type_kwargs={"prompt": prompt}
-)
+combine_docs_chain = create_stuff_documents_chain(llm, prompt)
+rag_chain = create_retrieval_chain(vs_retriever, combine_docs_chain)
 
-mlflow.models.set_model(retrieval_chain)
+mlflow.models.set_model(rag_chain)
 
 # COMMAND ----------
 
-result = retrieval_chain(
-  {"query":"Should I use shear protection when towing an aircraft?"}
-  )
-print(result['result'])
-result['source_documents']
+results = rag_chain.invoke({"input":"What are dams that have failed?"})
 
 # COMMAND ----------
 
-[x.metadata['img_path'] for x in result['source_documents']]
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Agent Driver
-# MAGIC Now we can deploy this agent as a serving endpoint to use within our interface
+results['context'][0]
 
 # COMMAND ----------
 
 from mlflow.models import infer_signature
-input = {"query":"Should I use shear protection when towing an aircraft?"}
-signature = infer_signature(input, retrieval_chain(input))
+input = {"input":"Should I use shear protection when towing an aircraft?"}
+signature = infer_signature(input, rag_chain.invoke(input))
 
 # COMMAND ----------
 
@@ -160,8 +140,8 @@ with mlflow.start_run():
 
     # Log the model in MLflow with the signature  
     logged_agent_info = mlflow.langchain.log_model(
-        lc_model="src/maud/agent/agent.py",
-        model_config='src/maud/config/default/agent_config.yaml',
+        lc_model="src/maud/agents/agent.py",
+        model_config='src/maud/configs/agent_config.yaml',
         artifact_path="model",
         pip_requirements=[
             "langchain==0.3.13",
@@ -183,8 +163,8 @@ with mlflow.start_run():
 
 # COMMAND ----------
 
-reloaded = mlflow.langchain.load_model("models:/shm.multimodal.retrieval_agent/1")
-result = reloaded.invoke({"query":"Should I use shear protection when towing an aircraft?"})
+reloaded = mlflow.langchain.load_model("models:/shm.multimodal.retrieval_agent/2")
+result = reloaded.invoke({"input":"Should I use shear protection when towing an aircraft?"})
 
 # COMMAND ----------
 
@@ -200,10 +180,10 @@ client = get_deploy_client("databricks")
 # Deploy the model to serving
 deploy_name = "maud-agent"
 model_name = "shm.multimodal.retrieval_agent"
-model_version = 1
+model_version = 2
 
 endpoint = client.create_endpoint(
-    name=f"{deploy_name}_{model_version}",
+    name=deploy_name,
     config={
         "served_entities": [{
             "entity_name": model_name,
@@ -213,7 +193,3 @@ endpoint = client.create_endpoint(
         }]
         }
 )
-
-# COMMAND ----------
-
-

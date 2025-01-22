@@ -18,11 +18,6 @@
 
 # COMMAND ----------
 
-#override bronze path
-BRONZE_PATH = 'mine_docs_bronze'
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC This section runs through the parsing and export of a single document. This takes a while since we are OCRing, extracting images, and analyzing the layout of each document. Docling provides a nice framework for exporting these documents as markdown files, both with linked and embedded images. This makes the downstream take of summarizing and converting images to text much easier, where we can even replace the images with a list of symbols references, description, caption etc.
 
@@ -116,18 +111,18 @@ for filename in filenames:
     converter.save_result()
     
     # get descriptions for pages, tables, and figures
-    # page_metadata = save_page_metadata(document, client, converter._output_path, converter._input_hash)
-    # table_metadata = save_table_metadata(document, client, converter._output_path, converter._input_hash)
-    # picture_metadata = save_picture_metadata(document, client, converter._output_path, converter._input_hash)
+    page_metadata = save_page_metadata(document, client, converter._output_path, converter._input_hash)
+    table_metadata = save_table_metadata(document, client, converter._output_path, converter._input_hash)
+    picture_metadata = save_picture_metadata(document, client, converter._output_path, converter._input_hash)
 
     result_summary = {
         'input_path': input_path,
         'input_hash': converter._input_hash,
         'output_dir': converter._output_path,
         'document': document,
-        # 'page_meta': page_metadata,
-        # 'table_meta': table_metadata,
-        # 'picture_meta': picture_metadata
+        'page_meta': page_metadata,
+        'table_meta': table_metadata,
+        'picture_meta': picture_metadata
     }
     iter_results[converter._input_hash] = result_summary
     print(f"time(s): {round(time.time() - start_time, 1)}")

@@ -61,3 +61,7 @@ for volume_name in [BRONZE_PATH, SILVER_PATH, GOLD_PATH]:
         w.volumes.create(catalog_name=CATALOG, schema_name=SCHEMA, name=volume_name)
     except:
         log.info(f"{volume_name} volume exists")
+
+# COMMAND ----------
+
+

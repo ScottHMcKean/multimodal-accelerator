@@ -90,3 +90,7 @@ doc_paths = doc_paths.withColumn(
 # COMMAND ----------
 
 display(doc_paths)
+
+# COMMAND ----------
+
+
