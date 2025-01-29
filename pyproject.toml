@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "maud"
-version = "0.0.2"
+version = "0.0.3"
 description = "MAUD (Multimodal Analysis of Unstructured Documents) Solution Accelerator"
 authors = [
     "Scott McKean <scott.mckean@databricks.com>",
@@ -16,12 +16,14 @@ pyyaml = "^6.0.1"
 databricks-langchain = "*"
 databricks-sdk = "*"
 databricks-vectorsearch = "^0.44"
+langgraph = "^0.2.63"
 docling = "^2.15.0"
 gradio = "^5.12"
 mlflow = "^2.4.0"
 numpy = "^1.26.0"
 transformers = "^4.42"
 openai = "^1.35.0"
+jupyter = "^1.1.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

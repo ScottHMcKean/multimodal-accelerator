@@ -4,7 +4,6 @@ import yaml
 from typing import Dict, Any
 
 CONFIG_DIR = Path(__file__).parent
-DEFAULT_CONFIG_DIR = CONFIG_DIR / "default"
 
 class Config:
     """Configuration container with nested attribute access."""
@@ -26,7 +25,7 @@ class Config:
         Args:
             config_name: Name of the config file (e.g., "app_config.yaml")
         """
-        config_path = DEFAULT_CONFIG_DIR / config_name
+        config_path = CONFIG_DIR / config_name
         
         if not config_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")

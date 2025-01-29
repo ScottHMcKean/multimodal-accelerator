@@ -46,6 +46,12 @@ poetry run pytest
 poetry update
 ```
 
+6. Install the IPython Kernel for Development
+While inside the Poetry shell, install the IPython kernel for Jupyter:
+```bash 
+python -m ipykernel install --user --name=maud
+```
+
 # Format code with black
 poetry run black src/ tests/
 
@@ -57,3 +63,12 @@ poetry run flake8 src/ tests/
 
 # Run mypy type checking
 poetry run mypy src/ tests/
+
+## Development Testing of Gradio Interface
+
+1. Run the gradio interface:
+```bash
+poetry run gradio app.py
+```
+
+2. Open the URL in your browser: http://localhost:7860/

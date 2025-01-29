@@ -1,5 +1,3 @@
-import os
-from typing import Optional
 import logging
 import gradio as gr
 from databricks.sdk import WorkspaceClient
@@ -13,7 +11,7 @@ logger = logging.getLogger(__name__)
 workspace_client = WorkspaceClient()
 
 # Load configuration
-config = Config("app_config.yaml")
+config = Config("app_maud_config.yaml")
 
 def query_llm(message, history):
     """
