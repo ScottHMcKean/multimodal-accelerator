@@ -10,16 +10,9 @@
 
 # COMMAND ----------
 
-import os
 import mlflow
-from operator import itemgetter
 from mlflow.models import ModelConfig
 
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain_core.runnables import RunnableLambda
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
 from databricks_langchain.vectorstores import DatabricksVectorSearch
 from databricks_langchain.chat_models import ChatDatabricks
 
@@ -64,7 +57,7 @@ vector_search = DatabricksVectorSearch(
     ] + vs_config.get("other_columns", [])
 )
     
-vs_retriever = vector_search.as_retriever(
+retriever = vector_search.as_retriever(
     search_type=vs_config.get("search_type"), 
     search_kwargs={
         'k': vs_config.get('num_results'), 
@@ -82,7 +75,7 @@ mlflow.models.set_retriever_schema(
 
 # COMMAND ----------
 
-vs_retriever.invoke('Reference Parts List')
+retriever.invoke('Dams that failed')
 
 # COMMAND ----------
 
@@ -92,41 +85,104 @@ vs_retriever.invoke('Reference Parts List')
 
 # COMMAND ----------
 
-prompt = PromptTemplate(
-    template=config.get("system_prompt"), 
-    input_variables=["context", "input"]
+from typing import List, TypedDict, Annotated, Dict
+from langgraph.graph import StateGraph, START, END, add_messages
+from langchain_core.messages import BaseMessage, AIMessage, SystemMessage, ToolMessage
+from langgraph.graph import StateGraph
+
+# COMMAND ----------
+
+class State(TypedDict):
+    messages: Annotated[List[BaseMessage], add_messages]
+    documents: dict
+
+# COMMAND ----------
+
+system_prompt = config.get("system_prompt")
+
+# COMMAND ----------
+
+def retrieve(state: State):
+    last_message = state["messages"][-1]
+    docs = retriever.invoke(last_message.content)
+
+    merged_doc_dict = [doc.to_json() for doc in docs]
+
+    context = "\n\n".join(
+        f"ID: {int(doc.metadata['id'])}\nContent: {doc.page_content}\nSource: {doc.metadata['img_path']}"
+        for doc in docs
     )
-
-combine_docs_chain = create_stuff_documents_chain(llm, prompt)
-rag_chain = create_retrieval_chain(vs_retriever, combine_docs_chain)
-
-mlflow.models.set_model(rag_chain)
-
-# COMMAND ----------
-
-results = rag_chain.invoke({"input":"What are dams that have failed?"})
+    
+    return {
+        "messages": [SystemMessage(content=system_prompt+context)],
+        "documents": merged_doc_dict
+    }
 
 # COMMAND ----------
 
-results['context'][0]
+def generate(state: State):
+    messages = state['messages']
+    system_message = [m for m in messages if m.type == 'system']
+    messages_for_llm = system_message + [m for m in messages if m.type=="human"]
+    response = llm.invoke(messages_for_llm)
+    return {"messages": [response]}
+
+# COMMAND ----------
+
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableLambda
+import json
+
+def parse_messages_docs(state) -> str:
+    last_message = state["messages"][-1]
+    parser = StrOutputParser()
+    parsed_output = parser.parse(last_message.content)
+
+    documents: dict= state.get("documents",{})
+    
+    # Create a JSON object
+    output = {
+        "response": parsed_output, 
+        "documents": documents
+        }
+    
+    # Convert the dictionary to a JSON string
+    return json.dumps(output, indent=2)
+
+# COMMAND ----------
+
+graph = StateGraph(State)
+
+graph.add_node("retrieve", retrieve)
+graph.add_node("generate", generate)
+
+graph.add_edge(START, "retrieve")
+graph.add_edge("retrieve", "generate")
+
+graph = graph.compile()
+chain = graph | RunnableLambda(parse_messages_docs)
+
+# COMMAND ----------
+
+input_example = {"messages": [{'role':'human', 'content':"What is a Dam?"}]}
+result = chain.invoke(input_example)
 
 # COMMAND ----------
 
 from mlflow.models import infer_signature
-input = {"input":"Should I use shear protection when towing an aircraft?"}
-signature = infer_signature(input, rag_chain.invoke(input))
+signature = infer_signature(input_example, result)
 
 # COMMAND ----------
 
 import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.types import Schema, ColSpec
-from mlflow.models.signature import infer_signature, ModelSignature
+from mlflow.models.signature import ModelSignature
+from mlflow.models.rag_signatures import StringResponse, ChatCompletionRequest
 from mlflow.models.resources import (
     DatabricksVectorSearchIndex,
     DatabricksServingEndpoint,
 )
-
 
 with mlflow.start_run():
     # Set the registry URI to Unity Catalog if needed
@@ -138,21 +194,24 @@ with mlflow.start_run():
         DatabricksVectorSearchIndex(index_name=vs_config.get("index_name")),
     ]
 
-    # Log the model in MLflow with the signature  
     logged_agent_info = mlflow.langchain.log_model(
-        lc_model="src/maud/agents/agent.py",
+        lc_model="src/maud/agents/langgraph.py",
         model_config='src/maud/configs/agent_config.yaml',
-        artifact_path="model",
         pip_requirements=[
-            "langchain==0.3.13",
-            "langchain-community==0.3.13",
-            "pydantic==2.10.4",
-            "databricks-langchain==0.1.1"
+            "langgraph>=0.2.62",
+            "pydantic",
+            "databricks_langchain",
+            "databricks-vectorsearch"
         ],
-        resources=list_of_databricks_resources, 
-        signature=signature,
-        registered_model_name="shm.multimodal.retrieval_agent",
-        )
+        artifact_path='agent',
+        registered_model_name='shm.multimodal.retrieval_agent',
+        input_example=input_example,
+        signature=ModelSignature(
+            inputs=ChatCompletionRequest(),
+            outputs=StringResponse(),
+        ),
+        resources=list_of_databricks_resources
+    )
 
     print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")
 
@@ -163,8 +222,8 @@ with mlflow.start_run():
 
 # COMMAND ----------
 
-reloaded = mlflow.langchain.load_model("models:/shm.multimodal.retrieval_agent/2")
-result = reloaded.invoke({"input":"Should I use shear protection when towing an aircraft?"})
+reloaded = mlflow.langchain.load_model("models:/shm.multimodal.retrieval_agent/11")
+result = reloaded.invoke(input_example)
 
 # COMMAND ----------
 
@@ -174,22 +233,34 @@ result = reloaded.invoke({"input":"Should I use shear protection when towing an 
 
 # COMMAND ----------
 
+# MAGIC %pip install databricks-agents
+
+# COMMAND ----------
+
 from mlflow.deployments import get_deploy_client
+from databricks import agents
+
 client = get_deploy_client("databricks")
 
 # Deploy the model to serving
 deploy_name = "maud-agent"
 model_name = "shm.multimodal.retrieval_agent"
-model_version = 2
+model_version = 11
 
-endpoint = client.create_endpoint(
-    name=deploy_name,
-    config={
-        "served_entities": [{
-            "entity_name": model_name,
-            "entity_version": model_version,
-            "workload_size": "Small",
-            "scale_to_zero_enabled": True
-        }]
-        }
-)
+deployment_info = agents.deploy(model_name, model_version)
+
+# endpoint = client.create_endpoint(
+#     name=deploy_name,
+#     config={
+#         "served_entities": [{
+#             "entity_name": model_name,
+#             "entity_version": model_version,
+#             "workload_size": "Small",
+#             "scale_to_zero_enabled": True
+#         }]
+#         }
+# )
+
+# COMMAND ----------
+
+

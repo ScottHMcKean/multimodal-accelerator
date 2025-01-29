@@ -11,7 +11,6 @@ import yaml
 import os
 from maud.interfaces.app import demo
 
-
 def load_config(config_path="src/maud/app.yaml"):
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
