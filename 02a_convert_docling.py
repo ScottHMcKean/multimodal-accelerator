@@ -129,10 +129,6 @@ for filename in filenames:
 
 # COMMAND ----------
 
-iter_results['b1ac23c4378dcbd5121ff2aa06eb9d53']['document'].tables[1]
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC Now let's analyze what we are getting for results. We can break this into metadata and parsed. 
 # MAGIC
@@ -215,6 +211,7 @@ table_meta = spark.createDataFrame(table_meta_df, table_meta_schema)
 (
   table_meta.write
   .mode('overwrite')
+  .option("mergeSchema", "true")
   .saveAsTable("shm.multimodal.table_metadata")
 )
 display(table_meta)
@@ -240,6 +237,7 @@ if pic_meta_combined is not None:
   (
     pic_meta.write
     .mode('overwrite')
+    .option("mergeSchema", "true")
     .saveAsTable("shm.multimodal.picture_metadata")
   )
   display(pic_meta)
@@ -257,7 +255,9 @@ if pic_meta_combined is not None:
 from docling.chunking import HybridChunker, HierarchicalChunker
 from maud.chunkers import process_chunk
 
-chunker = HybridChunker(tokenizer="sentence-transformers/all-MiniLM-L6-v2")
+chunker = HybridChunker(
+  tokenizer="sentence-transformers/all-MiniLM-L6-v2"
+  )
 
 combined_processed_chunks = []
 for key, result in iter_results.items():

@@ -3,30 +3,54 @@
 # MAGIC # Interface
 # MAGIC
 # MAGIC This code sets up our Databricks app for running a chat interface and serving images of tables and pictures with a user response, as well as the retrieved document information.
+# MAGIC
+# MAGIC There two key concepts here:
+# MAGIC - How Databricks Apps work
+# MAGIC - How to work with a multimodal chat interface
 
 # COMMAND ----------
 
-import os
-import yaml
-import os
-from maud.interfaces.gradio_maud import demo
+# MAGIC %md
+# MAGIC ## How Databricks Apps Work
+# MAGIC
+# MAGIC Databricks apps are a hosted container service. They use a yaml configuration file (`src\maud\interfaces\app.yaml`) to specify a run path where we run a main python file. This pattern is universal for pretty much all front ends written in python. In this accelerator we leverage Gradio, specifically the `ChatInterface` object with multimodal mode to share the retrieved images directly in chat. This is highly customizable using general UI frameworks like Streamlit, Gradio, or Flask.
+# MAGIC
+# MAGIC The code below uses the Databricks CLI to create and deploy the app. This pattern is useful because it can be replicated in continous integration / continous deployment (CI/CD) systems.
 
-def load_config(config_path="src/maud/app.yaml"):
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
-    
-    # Set environment variables from config
-    for key, value in config.items():
-        os.environ[key] = str(value)
+# COMMAND ----------
 
-    return config
+# MAGIC %pip install databricks-sdk --upgrade
+# MAGIC %restart_python
 
-if __name__ == "__main__":
-    load_config()
-    
-    # Launch with specific configurations for local testing
-    demo.launch(
-        server_name="0.0.0.0",  # Allows external access
-        server_port=7860,       # Default Gradio port
-        share=False             # Set to True if you want a public URL
-    )
+# COMMAND ----------
+
+from databricks.sdk import WorkspaceClient
+from src.maud.interfaces.create import create_app
+w = WorkspaceClient()
+
+# COMMAND ----------
+
+app_name = 'multimodal_maud'
+source_code_path = '/src/maud/interfaces'
+try:
+    app_info = w.apps.get(app_name)
+except Exception as e:
+    print(e)
+    create_app()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## How to work with a multimodal chat interface
+# MAGIC
+# MAGIC We use our Databricks App as a front end for a chat interface. This a nice abstraction for connecting to an agent, like the one we designed using LangGraph in inference and in `src/maud/agents`. At the core of this abstraction is an API call to the serving endpoint that is hosting the agent. 
+# MAGIC
+# MAGIC The pattern for this works like so:
+# MAGIC
+# MAGIC UI --> [Message] --> API --> [Message] --> UI 
+# MAGIC
+# MAGIC But when dealing with detailed document retrieval, we need to ensure that we are passing images of the pages, tables, and pictures back to the UI, along with the LLM summary based on the augmented context.
+
+# COMMAND ----------
+
+

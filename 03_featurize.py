@@ -90,11 +90,17 @@ from mlflow.models import ModelConfig
 from databricks.vector_search.client import VectorSearchClient
 from maud.retrievers import index_exists
 
-config = ModelConfig(development_config='config.yml')
-vs_endpoint = config.get("vs_endpoint")
-vs_index_name = config.get("vs_index_name")
-vs_source_table = config.get("vs_combined_chunks_table")
+config = ModelConfig(development_config='src/maud/configs/agent_config.yaml')
+vs_config = config.get("vector_search")
+vs_endpoint = vs_config.get("endpoint_name")
+vs_index_name = vs_config.get("index_name")
+vs_source_table = vs_config.get("combined_chunks_table")
 client = VectorSearchClient()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC If the index exists already, we will run a sync on the table. If not, we will use the SDK to create the index
 
 # COMMAND ----------
 
@@ -112,7 +118,3 @@ else:
         embedding_model_endpoint_name="databricks-gte-large-en",
         columns_to_sync=["filename", "pages", "type", "ref", "img_path"]
     )
-
-# COMMAND ----------
-
-

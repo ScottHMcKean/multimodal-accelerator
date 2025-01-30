@@ -219,7 +219,6 @@ table_meta_schema = StructType([
     ]), True),
     StructField("caption_ref", StringType(), True),
     StructField("caption_index", IntegerType(), True),
-    StructField("caption_text", StringType(), True),
     StructField("img_path", StringType(), True),
     StructField("description", StringType(), True)
 ])

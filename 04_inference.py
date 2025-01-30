@@ -75,7 +75,7 @@ mlflow.models.set_retriever_schema(
 
 # COMMAND ----------
 
-retriever.invoke('Dams that failed')
+retriever.invoke('Factor of safety for fabric materials')
 
 # COMMAND ----------
 
@@ -164,7 +164,7 @@ chain = graph | RunnableLambda(parse_messages_docs)
 
 # COMMAND ----------
 
-input_example = {"messages": [{'role':'human', 'content':"What is a Dam?"}]}
+input_example = {"messages": [{'role':'human', 'content':"What is the factor of safety for fabric straps?"}]}
 result = chain.invoke(input_example)
 
 # COMMAND ----------
@@ -178,7 +178,7 @@ import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.types import Schema, ColSpec
 from mlflow.models.signature import ModelSignature
-from mlflow.models.rag_signatures import StringResponse, ChatCompletionRequest
+from mlflow.models.rag_signatures import ChatCompletionRequest, ChatCompletionResponse, StringResponse
 from mlflow.models.resources import (
     DatabricksVectorSearchIndex,
     DatabricksServingEndpoint,
@@ -195,7 +195,7 @@ with mlflow.start_run():
     ]
 
     logged_agent_info = mlflow.langchain.log_model(
-        lc_model="src/maud/agents/langgraph.py",
+        lc_model="src/maud/agents/maud_agent.py",
         model_config='src/maud/configs/agent_config.yaml',
         pip_requirements=[
             "langgraph>=0.2.62",
@@ -222,7 +222,7 @@ with mlflow.start_run():
 
 # COMMAND ----------
 
-reloaded = mlflow.langchain.load_model("models:/shm.multimodal.retrieval_agent/11")
+reloaded = mlflow.langchain.load_model("models:/shm.multimodal.retrieval_agent/15")
 result = reloaded.invoke(input_example)
 
 # COMMAND ----------
@@ -230,10 +230,6 @@ result = reloaded.invoke(input_example)
 # MAGIC %md
 # MAGIC ## Deploy 
 # MAGIC Now we deploy the model
-
-# COMMAND ----------
-
-# MAGIC %pip install databricks-agents
 
 # COMMAND ----------
 
@@ -245,10 +241,11 @@ client = get_deploy_client("databricks")
 # Deploy the model to serving
 deploy_name = "maud-agent"
 model_name = "shm.multimodal.retrieval_agent"
-model_version = 11
+model_version = 15
 
 deployment_info = agents.deploy(model_name, model_version)
 
+# This is the alternative, but the agents framework is better for authentication passthrough
 # endpoint = client.create_endpoint(
 #     name=deploy_name,
 #     config={
@@ -260,7 +257,3 @@ deployment_info = agents.deploy(model_name, model_version)
 #         }]
 #         }
 # )
-
-# COMMAND ----------
-
-
