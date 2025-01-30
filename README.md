@@ -35,7 +35,7 @@ Each solution component is implemented as a Databricks notebook.
 ## Authors
 <scott.mckean@databricks.com>
 <chris.chalcraft@databricks.com>
-<volodymyr.vragov@databricks.com>
+<volo.vragov@databricks.com>
 <kyra.wulfert@databricks.com>
 
 ## Project support 
