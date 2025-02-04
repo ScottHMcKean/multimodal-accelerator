@@ -51,10 +51,8 @@ vector_search = DatabricksVectorSearch(
     endpoint=vs_config.get("endpoint_name"),
     index_name=vs_config.get("index_name"),
     columns=[
-        vs_config.get('primary_key'), 
-        vs_config.get('text_column'), 
-        vs_config.get('doc_uri')
-    ] + vs_config.get("other_columns", [])
+        vs_config.get('primary_key'), vs_config.get('doc_uri')
+        ] + vs_config.get("other_columns", [])
 )
     
 retriever = vector_search.as_retriever(
@@ -75,7 +73,11 @@ mlflow.models.set_retriever_schema(
 
 # COMMAND ----------
 
-retriever.invoke('Factor of safety for fabric materials')
+documents = retriever.invoke('Factor of safety for fabric materials')
+
+# COMMAND ----------
+
+type(documents[0])
 
 # COMMAND ----------
 
