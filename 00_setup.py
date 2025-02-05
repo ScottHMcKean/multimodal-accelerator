@@ -10,7 +10,7 @@
 # COMMAND ----------
 
 import sys
-sys.path.append('./src')
+sys.path.append('./maud')
 
 # COMMAND ----------
 

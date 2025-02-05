@@ -8,7 +8,7 @@ the MAUD project.
 from setuptools import setup, find_packages
 
 import sys
-sys.path.append('./src')
+sys.path.append('./maud')
 
 import datetime
 import maud
@@ -20,9 +20,9 @@ setup(
     version=maud.__version__ + "+" + datetime.datetime.utcnow().strftime("%Y%m%d.%H%M%S"),
     url="https://databricks.com",
     author="scott.mckean@databricks.com",
-    description="wheel file based on maud/src",
-    packages=find_packages(where='./src'),
-    package_dir={'': 'src'},
+    description="wheel file based on maud",
+    packages=find_packages(where='./maud'),
+    package_dir={'': 'maud'},
     entry_points={
         "packages": [
             "main=maud.main:main"

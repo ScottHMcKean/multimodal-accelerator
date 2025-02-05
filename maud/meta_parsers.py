@@ -8,7 +8,7 @@ def clean_bbox(bbox_entry):
     """
     return {k: float(v) for k, v in bbox_entry.items() if k != 'coord_origin'}
 
-def capture_page_metadata(page, page_dir, doc_name, client):
+def capture_page_metadata(page, page_dir, doc_name, llm_client):
     """
     Parse docling page metadata for vector search
     """
@@ -17,7 +17,7 @@ def capture_page_metadata(page, page_dir, doc_name, client):
     
     try:
         description = get_open_ai_image_description(
-        client, 
+        llm_client, 
         page.image.pil_image, 
         image_type='page', 
         max_tokens=200
@@ -27,17 +27,21 @@ def capture_page_metadata(page, page_dir, doc_name, client):
 
     page_entry = {
       'doc_name': doc_name,
-      'ref': f"#/page/{page.page_no}",
+      'doc_ref': f"#/page/{page.page_no}",
       'type': 'page',
+      'parent': '',
       'page_no': page.page_no,
       'size': dict(page.size),
+      'bbox': clean_bbox(dict(table.prov[0].bbox)),
+      'caption_ref': '',
+      'caption_index': '',
       'img_path': str(page_image_path),
       'description': description
     }
     
     return page_entry
 
-def capture_table_metadata(table, table_dir, doc_name, client):
+def capture_table_metadata(table, table_dir, doc_name, llm_client):
     """
     Parse docling table metadata for vector search
     """
@@ -46,7 +50,7 @@ def capture_table_metadata(table, table_dir, doc_name, client):
 
     try:    
         description = get_open_ai_image_description(
-        client, 
+        llm_client, 
         table.image.pil_image, 
         image_type='table', 
         max_tokens=200
@@ -66,7 +70,7 @@ def capture_table_metadata(table, table_dir, doc_name, client):
 
     table_entry = {
         "doc_name": doc_name,
-        "ref": table.self_ref,
+        "doc_ref": table.self_ref,
         "type": "table",
         "parent": str(table.parent),
         "page_no": table.prov[0].page_no,
@@ -80,7 +84,7 @@ def capture_table_metadata(table, table_dir, doc_name, client):
     return table_entry
   
 
-def capture_picture_metadata(picture, pic_dir, doc_name, client):
+def capture_picture_metadata(picture, pic_dir, doc_name, llm_client):
     """
     Parse docling picture metadata for vector search
     """
@@ -89,7 +93,7 @@ def capture_picture_metadata(picture, pic_dir, doc_name, client):
     
     try:
         description = get_open_ai_image_description(
-            client, 
+            llm_client, 
             picture.image.pil_image, 
             image_type='picture', 
             max_tokens=200
@@ -109,7 +113,7 @@ def capture_picture_metadata(picture, pic_dir, doc_name, client):
 
     picture_entry = {
         "doc_name": doc_name,
-        "ref": picture.self_ref,
+        "doc_ref": picture.self_ref,
         "type": "picture",
         "parent": str(picture.parent),
         "page_no": picture.prov[0].page_no,
@@ -138,14 +142,14 @@ def save_picture_image(picture, pic_dir):
     with picture_image_path.open("wb") as fp:
         picture.image.pil_image.save(fp, format="webp", quality=100)
 
-def save_page_metadata(document, client, output_path: Path, file_hash_key, limit=5):
+def save_page_metadata(document, llm_client, output_path: Path, file_hash_key, limit=5):
     page_metadata = []
     page_dir = output_path / 'pages'
     page_dir.mkdir(exist_ok=True, parents=True)
 
     loaded_pages = 0
     for _, page in list(document.pages.items()):
-        page_entry = capture_page_metadata(page, page_dir, file_hash_key, client)
+        page_entry = capture_page_metadata(page, page_dir, file_hash_key, llm_client)
         page_metadata.append(page_entry)
         if page.image is not None:
             save_page_image(page, page_dir)
@@ -156,14 +160,14 @@ def save_page_metadata(document, client, output_path: Path, file_hash_key, limit
 
     return page_metadata
 
-def save_table_metadata(document, client, output_path: Path, file_hash_key, limit=5):
+def save_table_metadata(document, llm_client, output_path: Path, file_hash_key, limit=5):
     table_metadata = []
     table_dir = output_path / 'tables'
     table_dir.mkdir(exist_ok=True, parents=True)
 
     loaded_tables = 0
     for table in document.tables:
-        table_entry = capture_table_metadata(table, table_dir, file_hash_key, client)
+        table_entry = capture_table_metadata(table, table_dir, file_hash_key, llm_client)
         table_metadata.append(table_entry)
         if table.image is not None:
             save_table_image(table, table_dir)
@@ -174,14 +178,14 @@ def save_table_metadata(document, client, output_path: Path, file_hash_key, limi
 
     return table_metadata
 
-def save_picture_metadata(document, client, output_path: Path, file_hash_key, limit=5):
+def save_picture_metadata(document, llm_client, output_path: Path, file_hash_key, limit=5):
     pic_metadata = []
     pic_dir = output_path / 'pictures'
     pic_dir.mkdir(exist_ok=True, parents=True)
 
     loaded_pictures = 0
     for picture in document.pictures:
-        pic_entry = capture_picture_metadata(picture, pic_dir, file_hash_key, client)
+        pic_entry = capture_picture_metadata(picture, pic_dir, file_hash_key, llm_client)
         pic_metadata.append(pic_entry)
         if picture.image is not None:
             save_picture_image(picture, pic_dir)
@@ -192,25 +196,17 @@ def save_picture_metadata(document, client, output_path: Path, file_hash_key, li
 
     return pic_metadata
 
-page_meta_schema = StructType([
+
+meta_schema = StructType([
     StructField("doc_name", StringType(), False),
-    StructField("ref", StringType(), False),
+    StructField("doc_ref", StringType(), False),
     StructField("type", StringType(), True),
+    StructField("parent", StringType(), True),
     StructField("page_no", IntegerType(), True),
     StructField("size", StructType([
         StructField("width", DoubleType(), True),
         StructField("height", DoubleType(), True)
     ]), True),
-    StructField("img_path", StringType(), True),
-    StructField("description", StringType(), True)
-])
-
-table_meta_schema = StructType([
-    StructField("doc_name", StringType(), False),
-    StructField("ref", StringType(), False),
-    StructField("type", StringType(), True),
-    StructField("parent", StringType(), True),
-    StructField("page_no", IntegerType(), True),
     StructField("bbox", StructType([
         StructField("l", DoubleType(), True),
         StructField("t", DoubleType(), True),

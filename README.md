@@ -16,6 +16,22 @@ Our solution is divided into four main components: ingest, extract, featurize, a
 
 <img src="assets/Multimodal Reference Architecture.png" width="800px">
 
+This architecture leverages several services from the Databricks platform: Databricks Apps to deliver a user interface, Databricks Vector Search to serve the retriever, Mosaic AI Gateway to serve the foundation model, Delta Live Tables to sync and maintain the vector database, and Model Serving to serve the agent framework, as show in the the process diagram below.
+
+<img src="assets/Multimodal Process Flow.png" width="800px">
+
+## Key Services and Costs
+
+| Service | Cost Model | Example Cost* | Latency | Reference |
+|---------|------------|---------------|----------|-----------|
+| Databricks Apps | Compute time | $0.50/DBU-hr | <100ms | [Apps Pricing](https://www.databricks.com/product/pricing) |
+| Mosaic Vector Search | Storage + Compute | $0.20/GB/month + Query costs | 10-100ms | [Docs](https://docs.databricks.com/en/generative-ai/vector-search.html) |
+| Mosaic AI Gateway | API calls | $0.01/1K tokens | 500-5000ms | [Docs](https://docs.databricks.com/en/machine-learning/ai-gateway/index.html) |
+| Delta Live Tables | Compute time | $0.50/DBU-hr | Minutes | [Docs](https://www.databricks.com/product/pricing) |
+| Mosaic AI Model Serving | Compute time | $0.31/hr | ~100ms | [Docs](https://docs.databricks.com/en/machine-learning/model-serving/index.html) |
+
+\* Example costs are approximate and will vary based on usage, region, and specific implementation details. DBU = Databricks Unit.
+
 ## Table of Contents
 
 Each solution component is implemented as a Databricks notebook. 
@@ -37,6 +53,7 @@ Each solution component is implemented as a Databricks notebook.
 <chris.chalcraft@databricks.com>
 <volo.vragov@databricks.com>
 <kyra.wulfert@databricks.com>
+<marshall.carter@databricks.com>
 
 ## Project support 
 

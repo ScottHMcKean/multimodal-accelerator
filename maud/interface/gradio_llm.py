@@ -2,7 +2,7 @@ import logging
 import gradio as gr
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
-from maud.configs import Config
+from maud.config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -90,7 +90,7 @@ from mlflow.models import ModelConfig
 from databricks.vector_search.client import VectorSearchClient
 from maud.retrievers import index_exists
 
-config = ModelConfig(development_config='src/maud/configs/agent_config.yaml')
+config = ModelConfig(development_config='maud/config/agent_config.yaml')
 vs_config = config.get("vector_search")
 vs_endpoint = vs_config.get("endpoint_name")
 vs_index_name = vs_config.get("index_name")

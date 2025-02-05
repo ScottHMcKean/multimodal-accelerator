@@ -17,7 +17,7 @@ from databricks_langchain.vectorstores import DatabricksVectorSearch
 from databricks_langchain.chat_models import ChatDatabricks
 
 mlflow.langchain.autolog()
-config = ModelConfig(development_config='src/maud/configs/agent_config.yaml')
+config = ModelConfig(development_config='maud/config/agent_config.yaml')
 
 # COMMAND ----------
 
@@ -197,8 +197,8 @@ with mlflow.start_run():
     ]
 
     logged_agent_info = mlflow.langchain.log_model(
-        lc_model="src/maud/agents/maud_agent.py",
-        model_config='src/maud/configs/agent_config.yaml',
+        lc_model="maud/agents/maud_agent.py",
+        model_config='maud/configs/agent_config.yaml',
         pip_requirements=[
             "langgraph>=0.2.62",
             "pydantic",

@@ -53,16 +53,16 @@ python -m ipykernel install --user --name=maud
 ```
 
 # Format code with black
-poetry run black src/ tests/
+poetry run black maud/ tests/
 
 # Sort imports with isort
-poetry run isort src/ tests/
+poetry run isort maud/ tests/
 
 # Run flake8 style checks
-poetry run flake8 src/ tests/
+poetry run flake8 maud/ tests/
 
 # Run mypy type checking
-poetry run mypy src/ tests/
+poetry run mypy maud/ tests/
 
 ## Development Testing of Gradio Interface
 
@@ -72,3 +72,7 @@ poetry run gradio app.py
 ```
 
 2. Open the URL in your browser: http://localhost:7860/
+
+## Logging
+
+Using a dedicated logger for each module or class is generally more maintainable and flexible than using the root logger directly. This approach allows you to configure logging behavior (such as log levels and handlers) specifically for different parts of your application. 

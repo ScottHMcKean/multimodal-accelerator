@@ -5,7 +5,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 import os
 from databricks.vector_search.client import VectorSearchClient
-from maud.configs import Config
+from maud.config import Config
 import json
 from PIL import Image
 

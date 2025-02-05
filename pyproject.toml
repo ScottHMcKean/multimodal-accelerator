@@ -8,7 +8,7 @@ authors = [
     "Kyra Wulffert <kyra.wulffert@databricks.com>"
 ]
 readme = "README.md"
-packages = [{include = "maud", from = "src"}]
+packages = [{include = "maud"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -56,4 +56,4 @@ check_untyped_defs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "--cov=src/maud --cov-report=term-missing" 
+addopts = "--cov=maud --cov-report=term-missing" 
