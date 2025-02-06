@@ -1,4 +1,4 @@
-from .foundation_models import get_open_ai_image_description
+from .extensions import get_open_ai_image_description
 from pathlib import Path
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType
 

@@ -72,8 +72,8 @@ import mlflow
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
 from mlflow.models import ModelSignature
 from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, CHAT_MODEL_OUTPUT_SCHEMA
-from data.input_examples import input_example, input_examples
-from config_utils import load_config
+from data.messages import input_example, input_examples
+
 
 retriever_config = load_config("retriever")
 retriever_schema = retriever_config['schema']
@@ -110,7 +110,7 @@ with mlflow.start_run(run_name="graph_rag_chain"):
                     'resources',
                     'state.py',
                     'graph.py',
-                    'config_utils.py'
+                    'config.utils.py'
                     ],
                   
                   resources = [
@@ -163,7 +163,7 @@ model_info = mlflow.register_model(model_uri,
 # COMMAND ----------
 
 from databricks.agents import deploy
-from config_utils import load_config
+from config.utils import load_config
 
 mlflow_config = load_config("mlflow")
 uc_model = mlflow_config.get('uc_model')

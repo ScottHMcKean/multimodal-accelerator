@@ -1,29 +1,32 @@
 [tool.poetry]
 name = "maud"
-version = "0.0.3"
+version = "0.0.4"
 description = "MAUD (Multimodal Analysis of Unstructured Documents) Solution Accelerator"
 authors = [
     "Scott McKean <scott.mckean@databricks.com>",
     "Volodymyr Vragov <volodymyr.vragov@databricks.com>",
-    "Kyra Wulffert <kyra.wulffert@databricks.com>"
+    "Kyra Wulffert <kyra.wulffert@databricks.com>",
+    "Marshall Carter <marshall.carter@databricks.com>",
+    "Chris Chalcraft <chris.chalcraft@databricks.com>"
 ]
 readme = "README.md"
 packages = [{include = "maud"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-pyyaml = "^6.0.1"
 databricks-langchain = "*"
 databricks-sdk = "*"
 databricks-vectorsearch = "^0.44"
-langgraph = "^0.2.63"
 docling = "^2.15.0"
 gradio = "^5.12"
+jupyter = "^1.1.1"
+langchain-openai = "^0.3"
+langgraph = "^0.2.63"
 mlflow = "^2.4.0"
 numpy = "^1.26.0"
-transformers = "^4.42"
 openai = "^1.35.0"
-jupyter = "^1.1.1"
+pyyaml = "^6.0.1"
+transformers = "^4.42"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

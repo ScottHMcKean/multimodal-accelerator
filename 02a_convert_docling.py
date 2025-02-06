@@ -81,8 +81,8 @@ docling_format_options={
 from openai import OpenAI
 from pathlib import Path
 import time
-from maud.meta_parsers import save_page_metadata, save_table_metadata, save_picture_metadata
-from maud.converters import DoclingConverterAdapter
+from doc_analysis.metadata import save_page_metadata, save_table_metadata, save_picture_metadata
+from doc_analysis.converters import DoclingConverterAdapter
 
 client = OpenAI(api_key = dbutils.secrets.get('shm','gpt4o'))
 
@@ -179,7 +179,7 @@ page_meta_df
 
 # COMMAND ----------
 
-from maud.meta_parsers import page_meta_schema, table_meta_schema
+from doc_analysis.metadata import page_meta_schema, table_meta_schema
 
 page_meta = spark.createDataFrame(page_meta_df, page_meta_schema)
 (
@@ -253,7 +253,7 @@ if pic_meta_combined is not None:
 # COMMAND ----------
 
 from docling.chunking import HybridChunker, HierarchicalChunker
-from maud.chunkers import process_chunk
+from doc_analysis.chunkers import process_chunk
 
 chunker = HybridChunker(
   tokenizer="sentence-transformers/all-MiniLM-L6-v2"
@@ -278,7 +278,7 @@ for key, result in iter_results.items():
 # COMMAND ----------
 
 # Define the schema
-from maud.chunkers import chunk_schema
+from doc_analysis.chunkers import chunk_schema
 
 chunk_df = spark.createDataFrame(combined_processed_chunks, schema=chunk_schema)
 (

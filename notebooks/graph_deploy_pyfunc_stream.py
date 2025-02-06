@@ -192,8 +192,7 @@ print_generation_and_history(stream_generations, 2, streaming=True)
 
 import mlflow
 from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
-from data.input_examples import input_example, input_examples
-from config_utils import load_config
+from data.messages import input_example, input_examples
 
 retriever_config = load_config("retriever")
 retriever_schema = retriever_config['schema']
@@ -227,7 +226,7 @@ with mlflow.start_run(run_name="graph_rag_pyfunc"):
                     'resources',
                     'state.py',
                     'graph.py',
-                    'config_utils.py'
+                    'config.utils.py'
                     ],
                   resources = [
                     DatabricksVectorSearchIndex(index_name=vector_search_index_name),
@@ -313,7 +312,7 @@ model_info = mlflow.register_model(model_uri,
 # COMMAND ----------
 
 from databricks.agents import deploy
-from config_utils import load_config
+from config.utils import load_config
 
 mlflow_config = load_config("mlflow")
 uc_model = mlflow_config.get('uc_model')
