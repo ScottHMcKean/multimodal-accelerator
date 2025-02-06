@@ -88,7 +88,7 @@ display(combined)
 
 from mlflow.models import ModelConfig
 from databricks.vector_search.client import VectorSearchClient
-from agents.retrievers import index_exists
+from agent.retrievers import index_exists
 
 config = ModelConfig(development_config='maud/config/agent_config.yaml')
 vs_config = config.get("vector_search")
