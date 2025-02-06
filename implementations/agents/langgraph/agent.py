@@ -1,12 +1,12 @@
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.graph import StateGraph, END
-from state import load_graph_state
-from nodes import (contains_chat_history, 
+from maud.agent.states import get_state
+from maud.agent.nodes import (contains_chat_history, 
                    query_vector_database,
                    generation_with_history, 
                    load_generation_no_history)
 
-state = load_graph_state()
+state = get_state()
 generation_no_history = load_generation_no_history()
 
 def load_graph() -> CompiledStateGraph:

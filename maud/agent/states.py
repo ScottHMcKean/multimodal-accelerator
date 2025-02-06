@@ -1,6 +1,6 @@
-from typing import TypedDict, Annotated, List, Dict, Any, Union
+from typing import TypedDict, Annotated, List, Union
 from operator import add
-import mlflow
+from maud.agent.config import MaudConfig
 
 class StreamState(TypedDict):
   """
@@ -13,18 +13,18 @@ class StreamState(TypedDict):
   """
   messages: List[dict[str,str]]
   generated_question: List[dict[str,str]]
-  context: List[str]
+  context: List[str] = [""]
 
 
 class GraphState(TypedDict):
   messages: Annotated[List[dict[str,str]], add]
   generated_question: List[dict[str,str]]
-  context: List[str]
+  context: List[str] = [""]
 
 
-def load_graph_state(config) -> Union[StreamState, GraphState]:
+def get_state(config: MaudConfig) -> Union[StreamState, GraphState]:
   """
   Load the proper state class depending on whether streaming
   inference is enabled.
   """
-  return StreamState if config.get("streaming") else GraphState
+  return StreamState if config.agent.streaming else GraphState

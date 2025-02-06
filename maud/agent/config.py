@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict
-from typing import List, Dict, Any
+from typing import List
+import mlflow
+from pathlib import Path
 
 
 class ConfigModel(BaseModel):
@@ -12,59 +14,52 @@ class ConfigModel(BaseModel):
     model_config = ConfigDict(extra='allow')
 
 class ModelParameters(ConfigModel):
-    max_tokens: int
     temperature: float
+    max_tokens: int
 
 class ModelConfig(ConfigModel):
-    name: str
+    endpoint_name: str
     parameters: ModelParameters
 
 class RetrieverSchema(ConfigModel):
     chunk_text: str
     document_uri: str
     primary_key: str
+    other_columns: List[str]
+
+    @property
+    def all_columns(self) -> List[str]:
+        """
+        Combines chunk_text, document_uri, primary_key and other_columns 
+        into a single list of all columns.
+        """
+        return [self.chunk_text, self.document_uri, self.primary_key] + self.other_columns
 
 class RetrieverParameters(ConfigModel):
-    k: int
-    query_type: str
+    k: int = 5
+    query_type: str = 'ann'
+    score_threshold: float = 0
 
 class RetrieverConfig(ConfigModel):
-    vector_search_endpoint_name: str
-    vector_search_index: str
+    endpoint_name: str
+    index_name: str
     embedding_model: str
     parameters: RetrieverParameters
     schema: RetrieverSchema
     chunk_template: str
 
-class MLFlowConfig(ConfigModel):
-    experiment_location: str
-    uc_model: str
-
-class LanggraphConfig(ConfigModel):
-    model: ModelConfig
-    langgraph: Dict[str, Any]
-    retriever: RetrieverConfig
-    mlflow: MLFlowConfig
-
-class LLMConfig(ConfigModel):
-    endpoint_name: str
-    temperature: float
-    max_tokens: int
-
-class VectorSearchConfig(ConfigModel):
-    endpoint_name: str
-    combined_chunks_table: str
-    index_name: str
-    num_results: int
-    score_threshold: float
-    search_type: str
-    query_type: str
-    primary_key: str
-    text_column: str
-    doc_uri: str
-    other_columns: List[str]
-
 class AgentConfig(ConfigModel):
-    llm: LLMConfig
-    vector_search: VectorSearchConfig
-    system_prompt: str
+    streaming: bool
+    experiment_location: str
+    uc_model_name: str
+
+class MaudConfig(ConfigModel):
+    agent: AgentConfig
+    model: ModelConfig
+    retriever: RetrieverConfig
+
+def parse_config(mlflow_config: mlflow.models.ModelConfig) -> MaudConfig:
+    """
+    Parse an mlflow config into a pydantic configuration.
+    """
+    return MaudConfig(**mlflow_config.to_dict())
