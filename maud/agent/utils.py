@@ -1,7 +1,8 @@
 from functools import partial
-from typing import List, Dict, Iterator
+from typing import List, Dict, Iterator, Union
 from mlflow.types.llm import ChatCompletionRequest, ChatCompletionResponse, ChatChoice, ChatMessage
 from langchain_core.messages import MessageLikeRepresentation
+from langchain_core.messages.utils import convert_to_messages, convert_to_openai_messages
 from langgraph.graph import StateGraph
 from dataclasses import asdict
 
@@ -19,18 +20,17 @@ format_generation_user = partial(format_generation, "user")
 format_generation_assistant = partial(format_generation, "assistant")
 
 
-def choose_prompt_question(state: StateGraph) -> List[Dict[str, str]]:
+def get_last_user_message(state: StateGraph) -> List[Dict[str, str]]: 
   """
-  Determine if the users's original question or the model's
-  reformulated question should be used to query the vector index
-  and generate the model's final answer.
+  Return the last user message from the state. 
+  Uses LangChain's convert_to_messages and convert_to_openai_messages 
+  functions to convert the state to a list of dictionaries with 
+  'role' and 'content' keys back into the state.
   """
-  if 'generated_question' in state:
-    question = state['generated_question']
-  else:
-    question = [state['messages'][-1]]
+  messages = convert_to_messages(state['messages'])
+  last_msg = [[x for x in messages if x.type == 'human'][-1]]
+  return convert_to_openai_messages(last_msg)
 
-  return question
 
 
 def graph_state_to_chat_type(state: StateGraph):
@@ -42,15 +42,8 @@ def graph_state_to_chat_type(state: StateGraph):
   chain = compile_graph | RunnableLambda(graph_state_to_chat_type)
   """
   answer = state['messages'][-1]['content']
-  return asdict(ChatCompletionResponse(
-      choices=[ChatChoice(message=ChatMessage(role="assistant", 
-                                              content=answer))],
-                           custom_outputs={
-                                "message_history": state['messages']
-                                }
-      
-    )
-  )
+  return create_flexible_chat_completion_response(answer, state['messages'])
+
 
 
 def create_flexible_chat_completion_response(answer: str, message_history: List = None) -> Dict:
@@ -59,14 +52,14 @@ def create_flexible_chat_completion_response(answer: str, message_history: List 
   required by Databricks Mosaic AI Agent Framework
   """
   return asdict(ChatCompletionResponse(
-      choices=[ChatChoice(message=ChatMessage(role="assistant", 
-                                              content=answer))],
-                           custom_outputs={
-                                "message_history": message_history
-                                }
-      
-    )
-  )
+      choices=[ChatChoice(message=ChatMessage(
+          role="assistant",
+          content=answer
+      ))],
+      custom_outputs={
+          "message_history": message_history
+      }
+  ))
 
 
 def wrap_output(stream: Iterator[MessageLikeRepresentation], yield_raw_events: bool=False) -> Iterator[Dict]:

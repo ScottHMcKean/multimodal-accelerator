@@ -46,10 +46,10 @@ class RetrieverConfig(ConfigModel):
     embedding_model: str
     parameters: RetrieverParameters
     schema: RetrieverSchema
-    chunk_template: str
+    chunk_template: str = 'Passage: {chunk_text}\n Document URI: {document_uri}\n'
 
 class AgentConfig(ConfigModel):
-    streaming: bool
+    streaming: bool = False
     experiment_location: str
     uc_model_name: str
 

@@ -1,5 +1,5 @@
 agent:
-  streaming: True
+  streaming: False
   experiment_location: "/Users/marshall.carter@databricks.com/langgraph_models"
   uc_model_name: main.default.mlc_langgraph_model
 model:
@@ -23,4 +23,4 @@ retriever:
     other_columns: 
     - filename
     - type
-  chunk_template: 'Passage: {chunk_text}\n'
+  chunk_template: 'Passage: {chunk_text}\n Document URI: {document_uri}\n'

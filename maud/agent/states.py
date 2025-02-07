@@ -1,5 +1,6 @@
 from typing import TypedDict, Annotated, List, Union
 from operator import add
+from langchain_core.documents.base import Document
 from maud.agent.config import MaudConfig
 
 class StreamState(TypedDict):
@@ -12,14 +13,14 @@ class StreamState(TypedDict):
   from the node, rather than an update.
   """
   messages: List[dict[str,str]]
-  generated_question: List[dict[str,str]]
-  context: List[str] = [""]
+  context: List[str]
+  documents: List[Document]
 
 
 class GraphState(TypedDict):
   messages: Annotated[List[dict[str,str]], add]
-  generated_question: List[dict[str,str]]
-  context: List[str] = [""]
+  context: List[str]
+  documents: List[Document]
 
 
 def get_state(config: MaudConfig) -> Union[StreamState, GraphState]:

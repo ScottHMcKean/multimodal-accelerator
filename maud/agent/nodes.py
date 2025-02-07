@@ -1,109 +1,90 @@
 from typing import Dict, Any, Union
-
+from .config import MaudConfig
 from langchain_core.runnables import RunnableLambda
 from .states import GraphState, StreamState
-from .prompts import prompt_no_history, prompt_with_history, chat_prompt
+from .prompts import chat_template, context_template, rephrase_template
 from .retrievers import format_documents
-from .utils import format_generation_user, format_generation_assistant, choose_prompt_question
+from .utils import format_generation_user, format_generation_assistant, get_last_user_message
 from langchain_openai import ChatOpenAI
 from databricks_langchain import ChatDatabricks
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_core.runnables import RunnableLambda
 
-def make_generation_no_history(model: Union[ChatOpenAI, ChatDatabricks], graph_state: GraphState):
-  """
-  Load the propery implementation for the generation_no_history
-  node depending on whether streaming or batch inference
-  is specified in config.yaml
-  """
-  if graph_state:
-    return make_generation_no_history_stream(model)
-  else:
-    return make_generation_no_history(model)
-
-def contains_chat_history(state: Union[GraphState, StreamState]) -> str:
-  """
-  Determine if conversation history exists. Ask the model to 
-  rephrase the user's current question such that it incorporates
-  the conversation history.
-  """
-  history = state['messages']
-  return "contains_history" if len(history) > 1 else "no_history"
-
-
-def make_query_vector_database(retriever: VectorStoreRetriever):
+def make_simple_generation_node(model: Union[ChatOpenAI, ChatDatabricks], config: MaudConfig):
+  def simple_generation_node(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
+    """
+    Simple generation node that does not use the prompt or context
+    """
+    last_msg = get_last_user_message(state)
+    chain = chat_template | model | RunnableLambda(format_generation_assistant)
+    response = chain.invoke(last_msg)
+    
+    if config.agent.streaming:
+      response = state["messages"] + response
+    
+    return {"messages": response}
   
-  def query_vector_database(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
+  return simple_generation_node
+
+
+def make_query_vector_database_node(retriever: VectorStoreRetriever, config: MaudConfig):
+  def query_vector_database_node(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
     """
     Retrieve and format the documents from the vector index.
     """
-    question = choose_prompt_question(state)[0]
-    documents = retriever.invoke(question['content'])
-    formatted_documents = format_documents(documents)
-    return {"context": formatted_documents}
+    last_msg = get_last_user_message(state)
+    documents = retriever.invoke(last_msg[0]['content'])
+    formatted_documents = format_documents(config, documents)
+    return {"context": formatted_documents, "documents": documents}
   
-  return query_vector_database
+  return query_vector_database_node
 
-def make_generation(model: Union[ChatOpenAI, ChatDatabricks]):
-  def generation_no_history(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
+
+def make_context_generation_node(model: Union[ChatOpenAI, ChatDatabricks], config: MaudConfig):
+  def context_generation_node(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
     """
     Inject the users's question, which may have been previously rephrased
     by the model if there was message history, and the context retrieved 
     from the vector index into the prompt.
     """
-    question = choose_prompt_question(state)
-    chain = chat_prompt | model | RunnableLambda(format_generation_assistant)
-    generation = chain.invoke({"question": question})
-    return {"messages": generation}
-  
-  return generation_no_history
+    chain = context_template | model | RunnableLambda(format_generation_assistant)
 
-def make_generation_no_history(model: Union[ChatOpenAI, ChatDatabricks]):
-  def generation_no_history(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
+    last_msg = get_last_user_message(state)
+    question = last_msg
+
+    if "context" in state:
+      context = state["context"]
+    else:
+      context = ""
+
+    response = chain.invoke({"context": context, "question": question})
+    
+    if config.agent.streaming:
+      response = state["messages"] + response
+    
+    return {"messages": response}
+  
+  return context_generation_node
+
+def make_rephrase_generation_node(model: Union[ChatOpenAI, ChatDatabricks], config: MaudConfig):
+  def rephrase_generation_node(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
     """
     Inject the users's question, which may have been previously rephrased
     by the model if there was message history, and the context retrieved 
     from the vector index into the prompt.
-    """
-    if state["context"] is None:
-      state["context"] = [""]
-    question = choose_prompt_question(state)
-    chain = prompt_no_history | model | RunnableLambda(format_generation_assistant)
-    generation = chain.invoke({"context": state["context"],"question": question})
-    return {"messages": generation}
-  
-  return generation_no_history
 
-def make_generation_no_history_stream(model: Union[ChatOpenAI, ChatDatabricks]):
-  def generation_no_history_stream(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
-    """
     It is neccessary to explicitely add messages and write back to the
     state for streaming to work properly with MLflow. See the StreamState
     class documentation for more details.
     """
-    question = choose_prompt_question(state)
-    chain = prompt_no_history | model | RunnableLambda(format_generation_assistant)
-    generation = chain.invoke({"context": state["context"], "question": question})
-    updated_messages = state["messages"] + generation
-    return {"messages": updated_messages}
+    chain = rephrase_template | model | RunnableLambda(format_generation_user)
+    
+    # We don't need to explicitly pass context here because it is in the message history (or not)
+    response = chain.invoke({"messages": state['messages']})
+    
+    if config.agent.streaming:
+      response = state["messages"] + response
 
-  return generation_no_history_stream
-
-def make_generation_with_history(model: Union[ChatOpenAI, ChatDatabricks]):
-  def generation_with_history(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
-    """
-    Ask the model to rephrase the user's question to incorporate message 
-    history. This will result in a new question that will contain additional
-    context helpful for retrieving documents from the vector index. 
-    This rephrased question will be passed to the model to generate
-    the final answer returned to the user.
-    """  
-    chain = prompt_with_history | model | RunnableLambda(format_generation_user)
-    generation = chain.invoke({"messages": state['messages']})
-    return {"generated_question": generation}
-
-  return generation_with_history
-
-
-
-
+    return {"messages": response}
+  
+  return rephrase_generation_node
