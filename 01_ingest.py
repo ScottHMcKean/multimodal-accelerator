@@ -21,6 +21,7 @@
 # COMMAND ----------
 
 import pandas as pd
+
 doc_df = pd.read_csv("./fixtures/maintenance_documents.csv")
 doc_paths = spark.createDataFrame(doc_df)
 display(doc_paths)
@@ -32,7 +33,7 @@ display(doc_paths)
 
 # COMMAND ----------
 
-#TODO: Add example and router for loading blob and/or volumes
+# TODO: Add example and router for loading blob and/or volumes
 import requests
 from pathlib import Path
 import pyspark.sql.functions as F
@@ -40,18 +41,20 @@ import pyspark.sql.types as T
 
 SAVE_PATH = f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}"
 
+
 @udf(T.BooleanType())
 def download_file(title, url):
     response = requests.get(url)
     file_path = Path(SAVE_PATH) / f"{title}.pdf"
-    with open(file_path, 'wb') as file:
+    with open(file_path, "wb") as file:
         file.write(response.content)
     return True
 
+
 # Download all files in the dataframe
 doc_paths = doc_paths.withColumn(
-  'downloaded', download_file(F.col('document_name'), F.col('document_url'))
-  )
+    "downloaded", download_file(F.col("document_name"), F.col("document_url"))
+)
 
 # COMMAND ----------
 
@@ -60,6 +63,7 @@ doc_paths = doc_paths.withColumn(
 
 # COMMAND ----------
 
+
 @udf(T.BinaryType())
 def load_url_to_binary(url):
     response = requests.get(url)
@@ -67,30 +71,26 @@ def load_url_to_binary(url):
         return response.content
     else:
         return None
-      
+
+
 # Download all files in the dataframe
-doc_paths = doc_paths.withColumn(
-  'bytes', load_url_to_binary(F.col('document_url'))
-  )
+doc_paths = doc_paths.withColumn("bytes", load_url_to_binary(F.col("document_url")))
 
 # Save the DataFrame to a Delta table
-( 
-  doc_paths
-  .write.format("delta")
-  .mode("overwrite")
-  .option("mergeSchema", "true")
-  .saveAsTable(f"{CATALOG}.{SCHEMA}.{BRONZE_PATH}")
+(
+    doc_paths.write.format("delta")
+    .mode("overwrite")
+    .option("mergeSchema", "true")
+    .saveAsTable(f"{CATALOG}.{SCHEMA}.{BRONZE_PATH}")
 )
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC We now have our driver table with all the bytes for our document processing, as well as a copy in volumes to mock our cloud storage system. 
+# MAGIC We now have our driver table with all the bytes for our document processing, as well as a copy in volumes to mock our cloud storage system.
 
 # COMMAND ----------
 
 display(doc_paths)
 
 # COMMAND ----------
-
-

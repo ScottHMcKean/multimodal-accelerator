@@ -26,12 +26,13 @@
 
 from databricks.sdk import WorkspaceClient
 from maud.interface.create import create_app
+
 w = WorkspaceClient()
 
 # COMMAND ----------
 
-app_name = 'multimodal_maud'
-source_code_path = 'maud/interfaces'
+app_name = "multimodal_maud"
+source_code_path = "maud/interfaces"
 try:
     app_info = w.apps.get(app_name)
 except Exception as e:
@@ -43,14 +44,12 @@ except Exception as e:
 # MAGIC %md
 # MAGIC ## How to work with a multimodal chat interface
 # MAGIC
-# MAGIC We use our Databricks App as a front end for a chat interface. This a nice abstraction for connecting to an agent, like the one we designed using LangGraph in inference and in `maud/agent`. At the core of this abstraction is an API call to the serving endpoint that is hosting the agent. 
+# MAGIC We use our Databricks App as a front end for a chat interface. This a nice abstraction for connecting to an agent, like the one we designed using LangGraph in inference and in `maud/agent`. At the core of this abstraction is an API call to the serving endpoint that is hosting the agent.
 # MAGIC
 # MAGIC The pattern for this works like so:
 # MAGIC
-# MAGIC UI --> [Message] --> API --> [Message] --> UI 
+# MAGIC UI --> [Message] --> API --> [Message] --> UI
 # MAGIC
 # MAGIC But when dealing with detailed document retrieval, we need to ensure that we are passing images of the pages, tables, and pictures back to the UI, along with the LLM summary based on the augmented context.
 
 # COMMAND ----------
-
-

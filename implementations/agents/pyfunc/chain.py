@@ -1,15 +1,20 @@
-from random import randint
 import mlflow
 from mlflow.pyfunc import ChatModel
-from mlflow.types.llm import (
-    ChatMessage,
-    ChatCompletionResponse,
-    ChatChoice,
-    ChatChoiceDelta,
-    ChatChunkChoice,
-    ChatCompletionChunk,
+
+import mlflow
+from maud.agent.config import parse_config
+
+from maud.agent.retrievers import get_vector_retriever
+from databricks_langchain import ChatDatabricks
+
+from maud.agent.states import get_state
+from maud.agent.nodes import (
+    make_query_vector_database_node,
+    make_context_generation_node,
 )
-from graph import load_graph
+from maud.agent.utils import format_chat_response_for_mlflow
+
+from langgraph.graph import StateGraph, START, END
 
 
 class GraphChatModel(ChatModel):
@@ -25,40 +30,29 @@ class GraphChatModel(ChatModel):
     """
 
     def __init__(self):
-        self.app = load_graph()
+        self.mlflow_config = mlflow.models.ModelConfig(
+            development_config="./config.yaml"
+        )
+        self.maud_config = parse_config(self.mlflow_config)
+        self.app = self.make_graph()
         mlflow.langchain.autolog()
 
-    def format_chat_response(self, answer, message_history=None, stream=False):
-        """
-        Reformat the LangGraph dictionary output into mlflow chat model types.
-        Streaming output requires the ChatCompletionChunk type; batch (invoke)
-        output requires the ChatCompletionResponse type.
+    def make_graph(self):
+        retriever = get_vector_retriever(self.maud_config)
+        model = ChatDatabricks(endpoint=self.maud_config.model.endpoint_name)
 
-        The models answer to the users question is returned. The messages history,
-        if it exists, is returned as a custom output within the chat message type.
-        """
-        if stream:
-            chat_completion_response = ChatCompletionChunk(
-                choices=[
-                    ChatChunkChoice(
-                        delta=ChatChoiceDelta(role="assistant", content=answer)
-                    )
-                ]
-            )
+        state = get_state(self.maud_config)
+        retriever_node = make_query_vector_database_node(retriever, self.maud_config)
+        context_generation_node = make_context_generation_node(model, self.maud_config)
 
-        else:
-            chat_completion_response = ChatCompletionResponse(
-                choices=[
-                    ChatChoice(message=ChatMessage(role="assistant", content=answer))
-                ]
-            )
-
-        if message_history:
-            chat_completion_response.custom_outputs = {
-                "message_history": message_history
-            }
-
-        return chat_completion_response
+        # Graph
+        workflow = StateGraph(state)
+        workflow.add_node("retrieve", retriever_node)
+        workflow.add_node("generate_w_context", context_generation_node)
+        workflow.add_edge(START, "retrieve")
+        workflow.add_edge("retrieve", "generate_w_context")
+        workflow.add_edge("generate_w_context", END)
+        self.app = workflow.compile()
 
     def predict_stream(self, context, messages, params=None):
         """
@@ -85,14 +79,14 @@ class GraphChatModel(ChatModel):
        
         '{rewritten_question}'
         """
-                yield self.format_chat_response(
+                yield format_chat_response_for_mlflow(
                     rewritten_question_with_context, stream=True
                 )
 
             if "generation_no_history" in event:
                 message_history = event["generation_no_history"]["messages"]
                 answer = message_history[-1]["content"]
-                yield self.format_chat_response(
+                yield format_chat_response_for_mlflow(
                     answer, message_history=message_history, stream=True
                 )
 
@@ -111,7 +105,7 @@ class GraphChatModel(ChatModel):
         generation = self.app.invoke(messages)
         message_history = generation["messages"]
         answer = message_history[-1]["content"]
-        return self.format_chat_response(answer, message_history=message_history)
+        return format_chat_response_for_mlflow(answer, message_history=message_history)
 
 
 mlflow.models.set_model(GraphChatModel())

@@ -1,26 +1,41 @@
-from langgraph.graph.state import CompiledStateGraph
-from langgraph.graph import StateGraph, END
+# Config
+import mlflow
+from maud.agent.config import parse_config
+
+mlflow_config = mlflow.models.ModelConfig(development_config="./config.yaml")
+maud_config = parse_config(mlflow_config)
+
+# API Interfaces
+from maud.agent.retrievers import get_vector_retriever
+from databricks_langchain import ChatDatabricks
+
+retriever = get_vector_retriever(maud_config)
+model = ChatDatabricks(endpoint=maud_config.model.endpoint_name)
+
+# Nodes
 from maud.agent.states import get_state
-from maud.agent.nodes import (contains_chat_history, 
-                   query_vector_database,
-                   generation_with_history, 
-                   load_generation_no_history)
+from maud.agent.nodes import (
+    make_query_vector_database_node,
+    make_context_generation_node,
+)
 
-state = get_state()
-generation_no_history = load_generation_no_history()
+state = get_state(maud_config)
+retriever_node = make_query_vector_database_node(retriever, maud_config)
+context_generation_node = make_context_generation_node(model, maud_config)
 
-def load_graph() -> CompiledStateGraph:
-  workflow = StateGraph(state)
-  workflow.add_node("query_vector_database", query_vector_database)
-  workflow.add_node("generation_with_history", generation_with_history)
-  workflow.add_node("generation_no_history", generation_no_history)
+# Graph
+from langgraph.graph import StateGraph, START, END
+from langchain_core.runnables import RunnableLambda
+from maud.agent.utils import graph_state_to_chat_type
 
-  workflow.set_conditional_entry_point(contains_chat_history,
-                                      {"contains_history": "generation_with_history",
-                                        "no_history": "query_vector_database"})
+workflow = StateGraph(state)
+workflow.add_node("retrieve", retriever_node)
+workflow.add_node("generate_w_context", context_generation_node)
+workflow.add_edge(START, "retrieve")
+workflow.add_edge("retrieve", "generate_w_context")
+workflow.add_edge("generate_w_context", END)
+app = workflow.compile()
 
-  workflow.add_edge("generation_with_history", "query_vector_database")
-  workflow.add_edge("query_vector_database", "generation_no_history")
-  workflow.add_edge("generation_no_history", END)
+chain = app | RunnableLambda(graph_state_to_chat_type)
 
-  return workflow.compile()
+mlflow.models.set_model(chain)

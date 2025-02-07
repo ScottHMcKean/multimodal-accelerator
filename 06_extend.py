@@ -3,4 +3,4 @@
 # MAGIC # Extend
 # COMMAND ----------
 
-print('Hello, Databricks')
+print("Hello, Databricks")

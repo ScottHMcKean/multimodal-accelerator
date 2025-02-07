@@ -17,7 +17,7 @@ from databricks_langchain.vectorstores import DatabricksVectorSearch
 from databricks_langchain.chat_models import ChatDatabricks
 
 mlflow.langchain.autolog()
-config = ModelConfig(development_config='maud/config/agent_config.yaml')
+config = ModelConfig(development_config="maud/config/agent_config.yaml")
 
 # COMMAND ----------
 
@@ -31,10 +31,10 @@ config = ModelConfig(development_config='maud/config/agent_config.yaml')
 llm_config = config.get("llm")
 
 llm = ChatDatabricks(
-    endpoint=llm_config.get("endpoint_name"), 
-    max_tokens=llm_config.get("max_tokens"), 
-    temperature=llm_config.get("temperature")
-    )
+    endpoint=llm_config.get("endpoint_name"),
+    max_tokens=llm_config.get("max_tokens"),
+    temperature=llm_config.get("temperature"),
+)
 
 # COMMAND ----------
 
@@ -50,30 +50,29 @@ vs_config = config.get("vector_search")
 vector_search = DatabricksVectorSearch(
     endpoint=vs_config.get("endpoint_name"),
     index_name=vs_config.get("index_name"),
-    columns=[
-        vs_config.get('primary_key'), vs_config.get('doc_uri')
-        ] + vs_config.get("other_columns", [])
+    columns=[vs_config.get("primary_key"), vs_config.get("doc_uri")]
+    + vs_config.get("other_columns", []),
 )
-    
+
 retriever = vector_search.as_retriever(
-    search_type=vs_config.get("search_type"), 
+    search_type=vs_config.get("search_type"),
     search_kwargs={
-        'k': vs_config.get('num_results'), 
-        "score_threshold": vs_config.get('score_threshold'),
-        'query_type': vs_config.get('query_type')
-        }
+        "k": vs_config.get("num_results"),
+        "score_threshold": vs_config.get("score_threshold"),
+        "query_type": vs_config.get("query_type"),
+    },
 )
 
 mlflow.models.set_retriever_schema(
-    primary_key= vs_config.get('primary_key'),
-    text_column= vs_config.get('text_column'),
-    doc_uri= vs_config.get('doc_uri'),
+    primary_key=vs_config.get("primary_key"),
+    text_column=vs_config.get("text_column"),
+    doc_uri=vs_config.get("doc_uri"),
     name="vs_index",
 )
 
 # COMMAND ----------
 
-documents = retriever.invoke('Factor of safety for fabric materials')
+documents = retriever.invoke("Factor of safety for fabric materials")
 
 # COMMAND ----------
 
@@ -94,15 +93,18 @@ from langgraph.graph import StateGraph
 
 # COMMAND ----------
 
+
 class State(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     documents: dict
+
 
 # COMMAND ----------
 
 system_prompt = config.get("system_prompt")
 
 # COMMAND ----------
+
 
 def retrieve(state: State):
     last_message = state["messages"][-1]
@@ -114,20 +116,23 @@ def retrieve(state: State):
         f"ID: {int(doc.metadata['id'])}\nContent: {doc.page_content}\nSource: {doc.metadata['img_path']}"
         for doc in docs
     )
-    
+
     return {
-        "messages": [SystemMessage(content=system_prompt+context)],
-        "documents": merged_doc_dict
+        "messages": [SystemMessage(content=system_prompt + context)],
+        "documents": merged_doc_dict,
     }
+
 
 # COMMAND ----------
 
+
 def generate(state: State):
-    messages = state['messages']
-    system_message = [m for m in messages if m.type == 'system']
-    messages_for_llm = system_message + [m for m in messages if m.type=="human"]
+    messages = state["messages"]
+    system_message = [m for m in messages if m.type == "system"]
+    messages_for_llm = system_message + [m for m in messages if m.type == "human"]
     response = llm.invoke(messages_for_llm)
     return {"messages": [response]}
+
 
 # COMMAND ----------
 
@@ -135,21 +140,20 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
 import json
 
+
 def parse_messages_docs(state) -> str:
     last_message = state["messages"][-1]
     parser = StrOutputParser()
     parsed_output = parser.parse(last_message.content)
 
-    documents: dict= state.get("documents",{})
-    
+    documents: dict = state.get("documents", {})
+
     # Create a JSON object
-    output = {
-        "response": parsed_output, 
-        "documents": documents
-        }
-    
+    output = {"response": parsed_output, "documents": documents}
+
     # Convert the dictionary to a JSON string
     return json.dumps(output, indent=2)
+
 
 # COMMAND ----------
 
@@ -166,12 +170,17 @@ chain = graph | RunnableLambda(parse_messages_docs)
 
 # COMMAND ----------
 
-input_example = {"messages": [{'role':'human', 'content':"What is the factor of safety for fabric straps?"}]}
+input_example = {
+    "messages": [
+        {"role": "human", "content": "What is the factor of safety for fabric straps?"}
+    ]
+}
 result = chain.invoke(input_example)
 
 # COMMAND ----------
 
 from mlflow.models import infer_signature
+
 signature = infer_signature(input_example, result)
 
 # COMMAND ----------
@@ -180,7 +189,11 @@ import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.types import Schema, ColSpec
 from mlflow.models.signature import ModelSignature
-from mlflow.models.rag_signatures import ChatCompletionRequest, ChatCompletionResponse, StringResponse
+from mlflow.models.rag_signatures import (
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    StringResponse,
+)
 from mlflow.models.resources import (
     DatabricksVectorSearchIndex,
     DatabricksServingEndpoint,
@@ -188,7 +201,7 @@ from mlflow.models.resources import (
 
 with mlflow.start_run():
     # Set the registry URI to Unity Catalog if needed
-    mlflow.set_registry_uri('databricks-uc')
+    mlflow.set_registry_uri("databricks-uc")
 
     # Define the list of Databricks resources needed to serve the agent
     list_of_databricks_resources = [
@@ -198,21 +211,21 @@ with mlflow.start_run():
 
     logged_agent_info = mlflow.langchain.log_model(
         lc_model="maud/agents/maud_agent.py",
-        model_config='maud/configs/agent_config.yaml',
+        model_config="maud/configs/agent_config.yaml",
         pip_requirements=[
             "langgraph>=0.2.62",
             "pydantic",
             "databricks_langchain",
-            "databricks-vectorsearch"
+            "databricks-vectorsearch",
         ],
-        artifact_path='agent',
-        registered_model_name='shm.multimodal.retrieval_agent',
+        artifact_path="agent",
+        registered_model_name="shm.multimodal.retrieval_agent",
         input_example=input_example,
         signature=ModelSignature(
             inputs=ChatCompletionRequest(),
             outputs=StringResponse(),
         ),
-        resources=list_of_databricks_resources
+        resources=list_of_databricks_resources,
     )
 
     print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")
@@ -230,7 +243,7 @@ result = reloaded.invoke(input_example)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Deploy 
+# MAGIC ## Deploy
 # MAGIC Now we deploy the model
 
 # COMMAND ----------

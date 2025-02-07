@@ -21,68 +21,67 @@ import pyspark.sql.functions as F
 # COMMAND ----------
 
 page_meta = (
-    spark.table('shm.multimodal.page_metadata')
-    .withColumnRenamed('description', 'text')
-    .withColumn('filename', F.concat(F.col('doc_name'),F.lit('.pdf')))
-    .withColumn('pages', F.array(F.col('page_no')))
-    .withColumn('ref', F.array(F.col('ref')))
-    .select('filename','pages', 'text', 'type', 'ref', 'img_path')
+    spark.table("shm.multimodal.page_metadata")
+    .withColumnRenamed("description", "text")
+    .withColumn("filename", F.concat(F.col("doc_name"), F.lit(".pdf")))
+    .withColumn("pages", F.array(F.col("page_no")))
+    .withColumn("ref", F.array(F.col("ref")))
+    .select("filename", "pages", "text", "type", "ref", "img_path")
 )
 
 pic_meta = (
-    spark.table('shm.multimodal.picture_metadata')
-    .withColumnRenamed('description', 'text')
-    .withColumn('filename', F.concat(F.col('doc_name'),F.lit('.pdf')))
-    .withColumn('pages', F.array(F.col('page_no')))
-    .withColumn('ref', F.array(F.col('ref')))
-    .select('filename','pages', 'text', 'type', 'ref', 'img_path')
+    spark.table("shm.multimodal.picture_metadata")
+    .withColumnRenamed("description", "text")
+    .withColumn("filename", F.concat(F.col("doc_name"), F.lit(".pdf")))
+    .withColumn("pages", F.array(F.col("page_no")))
+    .withColumn("ref", F.array(F.col("ref")))
+    .select("filename", "pages", "text", "type", "ref", "img_path")
 )
 
 table_meta = (
-    spark.table('shm.multimodal.table_metadata')
-    .withColumnRenamed('description', 'text')
-    .withColumn('filename', F.concat(F.col('doc_name'),F.lit('.pdf')))
-    .withColumn('pages', F.array(F.col('page_no')))
-    .withColumn('ref', F.array(F.col('ref')))
-    .select('filename','pages', 'text', 'type', 'ref', 'img_path')
+    spark.table("shm.multimodal.table_metadata")
+    .withColumnRenamed("description", "text")
+    .withColumn("filename", F.concat(F.col("doc_name"), F.lit(".pdf")))
+    .withColumn("pages", F.array(F.col("page_no")))
+    .withColumn("ref", F.array(F.col("ref")))
+    .select("filename", "pages", "text", "type", "ref", "img_path")
 )
 
 chunks = (
-    spark.table('shm.multimodal.processed_chunks')
-    .withColumn('type', F.lit('text'))
-    .withColumn('ref', F.array(F.lit('tbd')))
-    .withColumn('img_path', F.lit(''))
-    .select('filename','pages', 'text', 'type', 'ref', 'img_path')
+    spark.table("shm.multimodal.processed_chunks")
+    .withColumn("type", F.lit("text"))
+    .withColumn("ref", F.array(F.lit("tbd")))
+    .withColumn("img_path", F.lit(""))
+    .select("filename", "pages", "text", "type", "ref", "img_path")
 )
 
 combined = (
-  chunks.unionByName(page_meta)
-  .unionByName(table_meta)
-  .unionByName(pic_meta)
-  .withColumn('id', F.monotonically_increasing_id())
+    chunks.unionByName(page_meta)
+    .unionByName(table_meta)
+    .unionByName(pic_meta)
+    .withColumn("id", F.monotonically_increasing_id())
 )
 
 # COMMAND ----------
 
 (
-  combined
-  .write.mode('overwrite')
-  .options(mergeSchema=True)
-  .saveAsTable('shm.multimodal.combined_chunks')
+    combined.write.mode("overwrite")
+    .options(mergeSchema=True)
+    .saveAsTable("shm.multimodal.combined_chunks")
 )
 display(combined)
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC ALTER TABLE shm.multimodal.combined_chunks 
+# MAGIC ALTER TABLE shm.multimodal.combined_chunks
 # MAGIC SET TBLPROPERTIES (delta.enableChangeDataFeed = true)
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Create Vector Search Index
-# MAGIC Now that we have a single table for vector search, let's load it into Databricks Vector Search. There is more we can do here, but for now we simply want to 
+# MAGIC Now that we have a single table for vector search, let's load it into Databricks Vector Search. There is more we can do here, but for now we simply want to
 
 # COMMAND ----------
 
@@ -90,7 +89,7 @@ from mlflow.models import ModelConfig
 from databricks.vector_search.client import VectorSearchClient
 from agent.retrievers import index_exists
 
-config = ModelConfig(development_config='maud/config/agent_config.yaml')
+config = ModelConfig(development_config="maud/config/agent_config.yaml")
 vs_config = config.get("vector_search")
 vs_endpoint = vs_config.get("endpoint_name")
 vs_index_name = vs_config.get("index_name")
@@ -116,5 +115,5 @@ else:
         primary_key="id",
         embedding_source_column="text",
         embedding_model_endpoint_name="databricks-gte-large-en",
-        columns_to_sync=["filename", "pages", "type", "ref", "img_path"]
+        columns_to_sync=["filename", "pages", "type", "ref", "img_path"],
     )

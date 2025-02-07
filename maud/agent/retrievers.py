@@ -7,15 +7,15 @@ def get_vector_retriever(config: MaudConfig) -> VectorStoreRetriever:
     vector_search = DatabricksVectorSearch(
         endpoint=config.retriever.endpoint_name,
         index_name=config.retriever.index_name,
-        columns=config.retriever.schema.all_columns
+        columns=config.retriever.schema.all_columns,
     )
-        
+
     retriever = vector_search.as_retriever(
         search_kwargs={
-            'k': config.retriever.parameters.k, 
+            "k": config.retriever.parameters.k,
             "score_threshold": config.retriever.parameters.score_threshold,
-            'query_type': config.retriever.parameters.query_type
-            }
+            "query_type": config.retriever.parameters.query_type,
+        }
     )
 
     return retriever
@@ -38,7 +38,7 @@ def index_exists(client, vs_endpoint, index_name):
         client.get_index(vs_endpoint, index_name)
         return True
     except Exception as e:
-        if 'IndexNotFoundException' in str(e):
+        if "IndexNotFoundException" in str(e):
             return False
         else:
             raise e

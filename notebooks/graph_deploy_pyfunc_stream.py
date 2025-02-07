@@ -1,5 +1,5 @@
 # Databricks notebook source
-# MAGIC %md ##Chatmodel deployment 
+# MAGIC %md ##Chatmodel deployment
 # MAGIC
 # MAGIC Supports batch (invoke) and streaming (stream) inference at the LangGraph event level.
 # MAGIC
@@ -19,9 +19,9 @@
 # MAGIC from random import randint
 # MAGIC import mlflow
 # MAGIC from mlflow.pyfunc import ChatModel
-# MAGIC from mlflow.types.llm import (ChatMessage, 
-# MAGIC                               ChatCompletionResponse, 
-# MAGIC                               ChatChoice, 
+# MAGIC from mlflow.types.llm import (ChatMessage,
+# MAGIC                               ChatCompletionResponse,
+# MAGIC                               ChatChoice,
 # MAGIC                               ChatChoiceDelta,
 # MAGIC                               ChatChunkChoice,
 # MAGIC                               ChatCompletionChunk)
@@ -31,7 +31,7 @@
 # MAGIC class GraphChatModel(ChatModel):
 # MAGIC   """
 # MAGIC   A mlflow ChatModel that invokes or streams a LangGraph
-# MAGIC   workflow. 
+# MAGIC   workflow.
 # MAGIC
 # MAGIC   The LangGraph output dictionary is parsed into mlflow chat model outputs
 # MAGIC   that vary depending on whether the graph is invoked or streamed.
@@ -50,7 +50,7 @@
 # MAGIC     Streaming output requires the ChatCompletionChunk type; batch (invoke)
 # MAGIC     output requires the ChatCompletionResponse type.
 # MAGIC
-# MAGIC     The models answer to the users question is returned. The messages history, 
+# MAGIC     The models answer to the users question is returned. The messages history,
 # MAGIC     if it exists, is returned as a custom output within the chat message type.
 # MAGIC     """
 # MAGIC     if stream:
@@ -60,11 +60,11 @@
 # MAGIC                                     content=answer
 # MAGIC                                   )
 # MAGIC                                   )]
-# MAGIC                               ) 
+# MAGIC                               )
 # MAGIC
 # MAGIC     else:
 # MAGIC       chat_completion_response = ChatCompletionResponse(
-# MAGIC                                   choices=[ChatChoice(message=ChatMessage(role="assistant", 
+# MAGIC                                   choices=[ChatChoice(message=ChatMessage(role="assistant",
 # MAGIC                                                       content=answer))]
 # MAGIC                               )
 # MAGIC
@@ -72,16 +72,16 @@
 # MAGIC       chat_completion_response.custom_outputs = {"message_history": message_history}
 # MAGIC
 # MAGIC     return chat_completion_response
-# MAGIC   
+# MAGIC
 # MAGIC
 # MAGIC   def predict_stream(self, context, messages, params=None):
 # MAGIC     """
-# MAGIC     NOTE: This method is not supported by Databricks model serving yet. 
-# MAGIC     Stream the application on the input messages. Selectively choose the output 
-# MAGIC     from graph events (node executions) to return to the user. This is necessary 
-# MAGIC     when the model is executed using the 'stream' method rather than the 'invoke' 
-# MAGIC     method. Each event in the stream represent the output of a LangGraph node. 
-# MAGIC     The event is a dictionary where the key is the node's name and the value is the 
+# MAGIC     NOTE: This method is not supported by Databricks model serving yet.
+# MAGIC     Stream the application on the input messages. Selectively choose the output
+# MAGIC     from graph events (node executions) to return to the user. This is necessary
+# MAGIC     when the model is executed using the 'stream' method rather than the 'invoke'
+# MAGIC     method. Each event in the stream represent the output of a LangGraph node.
+# MAGIC     The event is a dictionary where the key is the node's name and the value is the
 # MAGIC     nodes output dictionary, which conforms to the graph's state dictionary.
 # MAGIC
 # MAGIC     The output from nodes that invoke the model are return to the user. The
@@ -94,11 +94,11 @@
 # MAGIC       if 'generation_with_history' in event:
 # MAGIC         rewritten_question = event['generation_with_history']['generated_question'][-1]['content']
 # MAGIC         rewritten_question_with_context = f"""To incorporate context from our conversation, I've rewritten your question as:
-# MAGIC        
+# MAGIC
 # MAGIC         '{rewritten_question}'
 # MAGIC         """
 # MAGIC         yield self.format_chat_response(rewritten_question_with_context, stream=True)
-# MAGIC    
+# MAGIC
 # MAGIC
 # MAGIC       if 'generation_no_history' in event:
 # MAGIC           message_history = event['generation_no_history']['messages']
@@ -114,7 +114,7 @@
 # MAGIC     Receives a list of messages in mlflow ChatMessage format. Convert the messages to a list
 # MAGIC     of dictionaries before passing them to the application.
 # MAGIC
-# MAGIC     Elements from the dictionary are retrieved and reformatted into the expected MLflow 
+# MAGIC     Elements from the dictionary are retrieved and reformatted into the expected MLflow
 # MAGIC     chat model type and are then returned.
 # MAGIC     """
 # MAGIC     messages = {"messages": [message.to_dict() for message in messages]}
@@ -150,7 +150,7 @@ from nodes.utils import convert_to_chat_request, print_generation_and_history
 
 input_examples_chat_format = []
 for example in input_examples:
-  input_examples_chat_format.append(convert_to_chat_request(example['messages']))
+    input_examples_chat_format.append(convert_to_chat_request(example["messages"]))
 
 # COMMAND ----------
 
@@ -160,8 +160,8 @@ for example in input_examples:
 
 batch_generations = []
 for example in input_examples_chat_format:
-  generation = model.predict(None, example)
-  batch_generations.append(generation)
+    generation = model.predict(None, example)
+    batch_generations.append(generation)
 
 # COMMAND ----------
 
@@ -175,10 +175,10 @@ print_generation_and_history(batch_generations, 0)
 
 stream_generations = []
 for example in input_examples_chat_format:
-  events = []
-  for event in model.predict_stream(None, example):
-    events.append(event)
-  stream_generations.append(events)
+    events = []
+    for event in model.predict_stream(None, example):
+        events.append(event)
+    stream_generations.append(events)
 
 # COMMAND ----------
 
@@ -191,15 +191,18 @@ print_generation_and_history(stream_generations, 2, streaming=True)
 # COMMAND ----------
 
 import mlflow
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
+from mlflow.models.resources import (
+    DatabricksServingEndpoint,
+    DatabricksVectorSearchIndex,
+)
 from data.messages import input_example, input_examples
 
 retriever_config = load_config("retriever")
-retriever_schema = retriever_config['schema']
-vector_search_index_name = retriever_config['vector_search_index']
+retriever_schema = retriever_config["schema"]
+vector_search_index_name = retriever_config["vector_search_index"]
 
 model_config = load_config("model")
-model_name = model_config.get('name')
+model_name = model_config.get("name")
 
 mlflow_config = load_config("mlflow")
 experiment_location = mlflow_config["experiment_location"]
@@ -209,40 +212,40 @@ uc_model = mlflow_config["uc_model"]
 mlflow.models.set_retriever_schema(
     primary_key=retriever_schema.get("primary_key"),
     text_column=retriever_schema.get("chunk_text"),
-    doc_uri=retriever_schema.get("document_uri")  
+    doc_uri=retriever_schema.get("document_uri"),
 )
 
 with mlflow.start_run(run_name="graph_rag_pyfunc"):
 
-  model_info = mlflow.pyfunc.log_model(
-                  python_model = "chat_model.py",
-                  streamable=True,
-                  model_config="config.yaml",
-                  artifact_path="graph",
-                  input_example=input_example,
-                  code_paths = [
-                    'nodes',
-                    'prompts',
-                    'resources',
-                    'state.py',
-                    'graph.py',
-                    'config.utils.py'
-                    ],
-                  resources = [
-                    DatabricksVectorSearchIndex(index_name=vector_search_index_name),
-                    DatabricksServingEndpoint(endpoint_name=model_name)
-                    ],
-                  pip_requirements = "requirements.txt"
-               )
-  
-  mlflow.log_artifact("graph.png")
+    model_info = mlflow.pyfunc.log_model(
+        python_model="chat_model.py",
+        streamable=True,
+        model_config="config.yaml",
+        artifact_path="graph",
+        input_example=input_example,
+        code_paths=[
+            "nodes",
+            "prompts",
+            "resources",
+            "state.py",
+            "graph.py",
+            "config.utils.py",
+        ],
+        resources=[
+            DatabricksVectorSearchIndex(index_name=vector_search_index_name),
+            DatabricksServingEndpoint(endpoint_name=model_name),
+        ],
+        pip_requirements="requirements.txt",
+    )
 
-  model_uri = model_info.model_uri
+    mlflow.log_artifact("graph.png")
 
-  loaded_app = mlflow.pyfunc.load_model(model_uri)
-  for example in input_examples:
-    loaded_app.predict(example)
-  
+    model_uri = model_info.model_uri
+
+    loaded_app = mlflow.pyfunc.load_model(model_uri)
+    for example in input_examples:
+        loaded_app.predict(example)
+
 print(model_uri)
 
 # COMMAND ----------
@@ -285,7 +288,7 @@ pprint(predictions_invoke)
 
 streaming_results = []
 for event in loaded_model.predict_stream(eval(serving_payload)):
-  streaming_results.append(event)
+    streaming_results.append(event)
 
 # COMMAND ----------
 
@@ -300,10 +303,9 @@ print(f"{streaming_results[1]}\n")
 
 mlflow.set_registry_uri("databricks-uc")
 
-model_info = mlflow.register_model(model_uri, 
-                                   name = uc_model,
-                                   tags={"model_type": "pyfunc",
-                                         "streaming": True})
+model_info = mlflow.register_model(
+    model_uri, name=uc_model, tags={"model_type": "pyfunc", "streaming": True}
+)
 
 # COMMAND ----------
 
@@ -315,10 +317,9 @@ from databricks.agents import deploy
 from config.utils import load_config
 
 mlflow_config = load_config("mlflow")
-uc_model = mlflow_config.get('uc_model')
+uc_model = mlflow_config.get("uc_model")
 
-deployment_info = deploy(model_name=uc_model, 
-                         model_version=model_info.version)
+deployment_info = deploy(model_name=uc_model, model_version=model_info.version)
 
 # COMMAND ----------
 
@@ -326,7 +327,7 @@ deployment_info = deploy(model_name=uc_model,
 
 # COMMAND ----------
 
-from pprint import pprint 
+from pprint import pprint
 from mlflow.deployments import get_deploy_client
 
 deploy_client = get_deploy_client("databricks")
@@ -338,11 +339,15 @@ endpoint_name = f"agents_{uc_model.replace('.', '-')}"
 
 # COMMAND ----------
 
-result = deploy_client.predict(endpoint=deployment_info.endpoint_name, inputs=eval(serving_payload))
+result = deploy_client.predict(
+    endpoint=deployment_info.endpoint_name, inputs=eval(serving_payload)
+)
 pprint(result)
 
 # COMMAND ----------
 
 for example in input_examples:
-  result = deploy_client.predict(endpoint=deployment_info.endpoint_name, inputs=example)
+    result = deploy_client.predict(
+        endpoint=deployment_info.endpoint_name, inputs=example
+    )
 pprint(result)

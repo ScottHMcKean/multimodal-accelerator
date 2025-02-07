@@ -1,176 +1,241 @@
 from functools import partial
 from typing import List, Dict, Iterator, Union
-from mlflow.types.llm import ChatCompletionRequest, ChatCompletionResponse, ChatChoice, ChatMessage
+from mlflow.types.llm import (
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    ChatChoice,
+    ChatMessage,
+)
 from langchain_core.messages import MessageLikeRepresentation
-from langchain_core.messages.utils import convert_to_messages, convert_to_openai_messages
+from langchain_core.messages.utils import (
+    convert_to_messages,
+    convert_to_openai_messages,
+)
 from langgraph.graph import StateGraph
 from dataclasses import asdict
 
+from mlflow.types.llm import (
+    ChatMessage,
+    ChatCompletionResponse,
+    ChatChoice,
+    ChatChoiceDelta,
+    ChatChunkChoice,
+    ChatCompletionChunk,
+)
+
 
 def format_generation(role: str, generation) -> Dict[str, str]:
-  """
-  Reformat Chat model response to a list of dictionaries. This function
-  is called within the graph's nodes to ensure a consistent chat
-  format is saved in the graph's state
-  """
-  return [{"role": role, "content": generation.content}]
+    """
+    Reformat Chat model response to a list of dictionaries. This function
+    is called within the graph's nodes to ensure a consistent chat
+    format is saved in the graph's state
+    """
+    return [{"role": role, "content": generation.content}]
 
 
 format_generation_user = partial(format_generation, "user")
 format_generation_assistant = partial(format_generation, "assistant")
 
 
-def get_last_user_message(state: StateGraph) -> List[Dict[str, str]]: 
-  """
-  Return the last user message from the state. 
-  Uses LangChain's convert_to_messages and convert_to_openai_messages 
-  functions to convert the state to a list of dictionaries with 
-  'role' and 'content' keys back into the state.
-  """
-  messages = convert_to_messages(state['messages'])
-  last_msg = [[x for x in messages if x.type == 'human'][-1]]
-  return convert_to_openai_messages(last_msg)
-
+def get_last_user_message(state: StateGraph) -> List[Dict[str, str]]:
+    """
+    Return the last user message from the state.
+    Uses LangChain's convert_to_messages and convert_to_openai_messages
+    functions to convert the state to a list of dictionaries with
+    'role' and 'content' keys back into the state.
+    """
+    messages = convert_to_messages(state["messages"])
+    last_msg = [[x for x in messages if x.type == "human"][-1]]
+    return convert_to_openai_messages(last_msg)
 
 
 def graph_state_to_chat_type(state: StateGraph):
-  """
-  Reformat the applications responses to conform to the ChatCompletionResponse
-  required by Databricks Mosaic AI Agent Framework. This function can be applied
-  to langgraph graphs called via 'invoke' and applied via RunnableLambda
+    """
+    Reformat the applications responses to conform to the ChatCompletionResponse
+    required by Databricks Mosaic AI Agent Framework. This function can be applied
+    to langgraph graphs called via 'invoke' and applied via RunnableLambda
 
-  chain = compile_graph | RunnableLambda(graph_state_to_chat_type)
-  """
-  answer = state['messages'][-1]['content']
-  return create_flexible_chat_completion_response(answer, state['messages'])
+    chain = compile_graph | RunnableLambda(graph_state_to_chat_type)
+    """
+    history = []
 
+    answer = state["messages"][-1]["content"]
 
+    if len(state["messages"]) > 1:
+        history += state["messages"][:-1]
 
-def create_flexible_chat_completion_response(answer: str, message_history: List = None) -> Dict:
-  """
-  Reformat the applications responses to conform to the ChatCompletionResponse
-  required by Databricks Mosaic AI Agent Framework
-  """
-  return asdict(ChatCompletionResponse(
-      choices=[ChatChoice(message=ChatMessage(
-          role="assistant",
-          content=answer
-      ))],
-      custom_outputs={
-          "message_history": message_history
-      }
-  ))
+    if "context" in state:
+        history += [{"role": "tool", "content": state["context"]}]
+
+    if "documents" in state:
+        history += [
+            {"role": "tool", "content": [x.model_dump() for x in state["documents"]]}
+        ]
+
+    return create_flexible_chat_completion_response(answer, history)
 
 
-def wrap_output(stream: Iterator[MessageLikeRepresentation], yield_raw_events: bool=False) -> Iterator[Dict]:
-  """
-  Process and yield formatted outputs that align with the message schema 
-  expected by Databricks Mosaic AI Agent framework. For more information about
-  this schema, see the below documentation.
+def create_flexible_chat_completion_response(
+    answer: str, message_history: List[Dict[str, str]] = None
+) -> Dict:
+    """
+    Reformat the applications responses to conform to the ChatCompletionResponse
+    required by Databricks Mosaic AI Agent Framework
+    """
+    return asdict(
+        ChatCompletionResponse(
+            choices=[ChatChoice(message=ChatMessage(role="assistant", content=answer))],
+            custom_outputs={"message_history": message_history},
+        )
+    )
 
-  https://docs.databricks.com/en/generative-ai/agent-framework/agent-schema.html#define-an-agents-input-and-output-schema
 
-  This function is designed to handle both the 'invoke' and 'stream' methods on compiled graphs.
+def wrap_output(
+    stream: Iterator[MessageLikeRepresentation], yield_raw_events: bool = False
+) -> Iterator[Dict]:
+    """
+    Process and yield formatted outputs that align with the message schema
+    expected by Databricks Mosaic AI Agent framework. For more information about
+    this schema, see the below documentation.
 
-  Calling the 'invoke' method on an a langgraph app will produce a single event - 
-  a list of dictionaries. The dictionaries are mapped to the graph's node. For each node, 
-  there will be a dictionary representation where the key is the node's name and the value 
-  is the dictionary returned by the node. 
+    https://docs.databricks.com/en/generative-ai/agent-framework/agent-schema.html#define-an-agents-input-and-output-schema
 
-  For Streaming, the node dictionaries are returned as they are executed. It is theremore necessary 
-  to determine which node's values are being received to determine if those values should be
-  reformatted and displayed to the user.
+    This function is designed to handle both the 'invoke' and 'stream' methods on compiled graphs.
 
-  By default, this function will return only certain events to the user. The content from these
-  events will also be reformatted. To see the raw events generated by the app, leverage the 
-  functools.partial method to adjust the postprocessing function apply to the app as shown
-  below.
+    Calling the 'invoke' method on an a langgraph app will produce a single event -
+    a list of dictionaries. The dictionaries are mapped to the graph's node. For each node,
+    there will be a dictionary representation where the key is the node's name and the value
+    is the dictionary returned by the node.
 
-  from functools import partial
+    For Streaming, the node dictionaries are returned as they are executed. It is theremore necessary
+    to determine which node's values are being received to determine if those values should be
+    reformatted and displayed to the user.
 
-  def load_chain():
-    app = load_graph()
-    wrap_output_events = partial(wrap_output, yield_raw_events=True)
-    chain = app | RunnableGenerator(wrap_output_events)
-    return chain
-  """
+    By default, this function will return only certain events to the user. The content from these
+    events will also be reformatted. To see the raw events generated by the app, leverage the
+    functools.partial method to adjust the postprocessing function apply to the app as shown
+    below.
 
-  def get_last_message(messages):
-      return messages[-1]['content']
-    
-  if yield_raw_events:
-    for event in stream:
-        yield event
+    from functools import partial
 
-  else:
-    for event in stream:
-      if 'messages' in event:
-        message_history = event['messages']
-        answer = get_last_message(message_history)
-        yield create_flexible_chat_completion_response(answer, message_history)
+    def load_chain():
+      app = load_graph()
+      wrap_output_events = partial(wrap_output, yield_raw_events=True)
+      chain = app | RunnableGenerator(wrap_output_events)
+      return chain
+    """
 
-      else:
-    
-        if 'generation_with_history' in event:
-          rewritten_question = event['generation_with_history']['generated_question'][-1]['content'] 
-          rewritten_question_with_context = f"""
+    def get_last_message(messages):
+        return messages[-1]["content"]
+
+    if yield_raw_events:
+        for event in stream:
+            yield event
+
+    else:
+        for event in stream:
+            if "messages" in event:
+                message_history = event["messages"]
+                answer = get_last_message(message_history)
+                yield create_flexible_chat_completion_response(answer, message_history)
+
+            else:
+
+                if "generation_with_history" in event:
+                    rewritten_question = event["generation_with_history"][
+                        "generated_question"
+                    ][-1]["content"]
+                    rewritten_question_with_context = f"""
           To incorporate context from our conversation, I've rewritten your question as:
 
           '{rewritten_question}'
 
           """
-          yield create_flexible_chat_completion_response(rewritten_question_with_context)
+                    yield create_flexible_chat_completion_response(
+                        rewritten_question_with_context
+                    )
+
+                if "generation_no_history" in event:
+                    message_history = event["generation_no_history"]["messages"]
+                    answer = get_last_message(message_history)
+                    yield create_flexible_chat_completion_response(
+                        answer, message_history
+                    )
 
 
-        if 'generation_no_history' in event:
-          message_history = event['generation_no_history']['messages']
-          answer = get_last_message(message_history)
-          yield create_flexible_chat_completion_response(answer, message_history)
+def convert_to_chat_request(
+    messages: List[Dict[str, setattr]]
+) -> ChatCompletionRequest:
+    """
+    Convert a messages to ChatCompletionRequest format. Input messages should conform
+    to the below format.
+
+    [
+      {'role': 'user', 'content': 'What is Apache Spark'},
+      {'role': 'assistant', 'content': 'Apache Spark is a distributed data processing engine.'}
+    ]
+
+    Relavent docs:
+      https://mlflow.org/docs/latest/llms/chat-model-intro/index.html#tutorial-getting-started-with-chatmodel
+      https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatCompletionRequest
+      https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatMessage
+      https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatParams
+      https://mlflow.org/docs/latest/llms/chat-model-intro/index.html#building-a-chatmodel-that-accepts-inference-parameters
+    """
+    chat_messages = []
+    for message in messages:
+        chat_messages.append(
+            ChatMessage(content=message["content"], role=message["role"])
+        )
+
+    chat_request = ChatCompletionRequest(messages=chat_messages)
+    return chat_request.messages
 
 
-def convert_to_chat_request(messages: List[Dict[str,setattr]]) -> ChatCompletionRequest:
-  """
-  Convert a messages to ChatCompletionRequest format. Input messages should conform
-  to the below format.
-
-  [
-    {'role': 'user', 'content': 'What is Apache Spark'},
-    {'role': 'assistant', 'content': 'Apache Spark is a distributed data processing engine.'}
-  ]
-
-  Relavent docs:
-    https://mlflow.org/docs/latest/llms/chat-model-intro/index.html#tutorial-getting-started-with-chatmodel
-    https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatCompletionRequest
-    https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatMessage
-    https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatParams
-    https://mlflow.org/docs/latest/llms/chat-model-intro/index.html#building-a-chatmodel-that-accepts-inference-parameters
-  """
-  chat_messages = []
-  for message in messages:
-    chat_messages.append(ChatMessage(content = message['content'],
-                                     role = message['role']))
-  
-  chat_request = ChatCompletionRequest(messages=chat_messages)
-  return chat_request.messages
+def print_generation_and_history(chat_responses: List, i: int, streaming: bool = False):
+    """
+    Accepts a ChatCompletionResponse and and print its contents. This function
+    is used to analyzing model outputs in a notebook before logging the
+    model to MLflow.
+    """
+    if streaming:
+        # Streaming responses can contain two events, where the first event
+        # contains the question rewrite response, and the second event
+        # contains the final generation and message history.
+        multiple_events = True if len(chat_responses[i]) > 1 else False
+        print(f"{chat_responses[i][0].choices[0].delta}\n")
+        if multiple_events:
+            print(f"{chat_responses[i][1].choices[0].delta}\n")
+            print(f"{chat_responses[i][1].custom_outputs}\n")
+        else:
+            print(f"{chat_responses[i][0].custom_outputs}\n")
+    else:
+        print(f"{chat_responses[i].choices[0].message}\n")
+        print(chat_responses[i].custom_outputs)
 
 
-def print_generation_and_history(chat_responses: List, i: int, streaming: bool=False):
-  """
-  Accepts a ChatCompletionResponse and and print its contents. This function
-  is used to analyzing model outputs in a notebook before logging the
-  model to MLflow.
-  """
-  if streaming: 
-    # Streaming responses can contain two events, where the first event
-    # contains the question rewrite response, and the second event
-    # contains the final generation and message history.
-    multiple_events = True if len(chat_responses[i]) > 1 else False
-    print(f"{chat_responses[i][0].choices[0].delta}\n")
-    if multiple_events:
-      print(f"{chat_responses[i][1].choices[0].delta}\n")
-      print(f"{chat_responses[i][1].custom_outputs}\n")
-    else: 
-      print(f"{chat_responses[i][0].custom_outputs}\n")
-  else:
-    print(f"{chat_responses[i].choices[0].message}\n")
-    print(chat_responses[i].custom_outputs)
+def format_chat_response_for_mlflow(answer, message_history=None, stream=False):
+    """
+    Reformat the LangGraph dictionary output into mlflow chat model types.
+    Streaming output requires the ChatCompletionChunk type; batch (invoke)
+    output requires the ChatCompletionResponse type.
+
+    The models answer to the users question is returned. The messages history,
+    if it exists, is returned as a custom output within the chat message type.
+    """
+    if stream:
+        chat_completion_response = ChatCompletionChunk(
+            choices=[
+                ChatChunkChoice(delta=ChatChoiceDelta(role="assistant", content=answer))
+            ]
+        )
+
+    else:
+        chat_completion_response = ChatCompletionResponse(
+            choices=[ChatChoice(message=ChatMessage(role="assistant", content=answer))]
+        )
+
+    if message_history:
+        chat_completion_response.custom_outputs = {"message_history": message_history}
+
+    return chat_completion_response

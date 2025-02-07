@@ -13,6 +13,7 @@ workspace_client = WorkspaceClient()
 # Load configuration
 config = Config("app_maud_config.yaml")
 
+
 def query_llm(message, history):
     """
     Query the LLM with the given message and chat history.
@@ -22,23 +23,27 @@ def query_llm(message, history):
 
     # Convert history and new message into ChatMessage format
     messages = []
-    
+
     # Add history messages
     for msg in history:
-        messages.append(ChatMessage(
-            role=ChatMessageRole.USER if msg["role"] == "user" else ChatMessageRole.ASSISTANT,
-            content=msg["content"]
-        ))
-    
+        messages.append(
+            ChatMessage(
+                role=(
+                    ChatMessageRole.USER
+                    if msg["role"] == "user"
+                    else ChatMessageRole.ASSISTANT
+                ),
+                content=msg["content"],
+            )
+        )
+
     # Add the new message
     messages.append(ChatMessage(role=ChatMessageRole.USER, content=message))
 
     try:
         logger.info(f"Sending request to model endpoint: {config.serving_endpoint}")
         response = workspace_client.serving_endpoints.query(
-            name=config.serving_endpoint,
-            messages=messages,
-            max_tokens=400
+            name=config.serving_endpoint, messages=messages, max_tokens=400
         )
         logger.info("Received response from model endpoint")
         return response.choices[0].message.content
@@ -46,13 +51,14 @@ def query_llm(message, history):
         logger.error(f"Error querying model: {str(e)}", exc_info=True)
         return f"Error: {str(e)}"
 
+
 # Create Gradio interface
 demo = gr.ChatInterface(
     fn=query_llm,
     title=config.interface.title,
     description=config.interface.description,
     examples=config.interface.examples,
-    type="messages"
+    type="messages",
 )
 
 if __name__ == "__main__":

@@ -1,7 +1,5 @@
 agent:
   streaming: False
-  experiment_location: "/Users/marshall.carter@databricks.com/langgraph_models"
-  uc_model_name: main.default.mlc_langgraph_model
 model:
   endpoint_name: databricks-meta-llama-3-3-70b-instruct
   parameters:
@@ -11,7 +9,7 @@ retriever:
   endpoint_name: one-env-shared-endpoint-3
   index_name: shm.multimodal.multimodal_index
   embedding_model: databricks-gte-large-en
-  search_type: 
+  search_type:
   parameters:
     k: 3
     query_type: ann
@@ -20,7 +18,7 @@ retriever:
     chunk_text: text
     document_uri: img_path
     primary_key: id
-    other_columns: 
-    - filename
-    - type
+    other_columns:
+      - filename
+      - type
   chunk_template: 'Passage: {chunk_text}\n Document URI: {document_uri}\n'

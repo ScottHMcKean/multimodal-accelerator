@@ -51,8 +51,8 @@ from data.input_examples import input_example, input_examples
 
 example_generations = []
 for example in input_examples:
-  invoke_event = app.invoke(example)
-  example_generations.append(invoke_event)
+    invoke_event = app.invoke(example)
+    example_generations.append(invoke_event)
 
 # COMMAND ----------
 
@@ -69,18 +69,21 @@ example_generations[0]
 # COMMAND ----------
 
 import mlflow
-from mlflow.models.resources import DatabricksServingEndpoint, DatabricksVectorSearchIndex
+from mlflow.models.resources import (
+    DatabricksServingEndpoint,
+    DatabricksVectorSearchIndex,
+)
 from mlflow.models import ModelSignature
 from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, CHAT_MODEL_OUTPUT_SCHEMA
 from data.messages import input_example, input_examples
 
 
 retriever_config = load_config("retriever")
-retriever_schema = retriever_config['schema']
-vector_search_index_name = retriever_config['vector_search_index']
+retriever_schema = retriever_config["schema"]
+vector_search_index_name = retriever_config["vector_search_index"]
 
 model_config = load_config("model")
-model_name = model_config['name']
+model_name = model_config["name"]
 
 mlflow_config = load_config("mlflow")
 experiment_location = mlflow_config["experiment_location"]
@@ -90,43 +93,43 @@ uc_model = mlflow_config["uc_model"]
 mlflow.models.set_retriever_schema(
     primary_key=retriever_schema.get("primary_key"),
     text_column=retriever_schema.get("chunk_text"),
-    doc_uri=retriever_schema.get("document_uri")  
+    doc_uri=retriever_schema.get("document_uri"),
 )
 
-explicit_signature = ModelSignature(inputs=CHAT_MODEL_INPUT_SCHEMA, outputs=CHAT_MODEL_OUTPUT_SCHEMA)
+explicit_signature = ModelSignature(
+    inputs=CHAT_MODEL_INPUT_SCHEMA, outputs=CHAT_MODEL_OUTPUT_SCHEMA
+)
 
 with mlflow.start_run(run_name="graph_rag_chain"):
-  model_info = mlflow.langchain.log_model(
-                  lc_model="chain.py",
-                  streamable=False,
-                  model_config="config.yaml",
-                  artifact_path="graph",
-                  signature=explicit_signature,
-                  input_example=input_example,
-                  
-                  code_paths = [
-                    'nodes',
-                    'prompts',
-                    'resources',
-                    'state.py',
-                    'graph.py',
-                    'config.utils.py'
-                    ],
-                  
-                  resources = [
-                    DatabricksVectorSearchIndex(index_name=vector_search_index_name),
-                    DatabricksServingEndpoint(endpoint_name=model_name)
-                    ],
-                  pip_requirements = "requirements.txt"
-               )
-  
-  mlflow.log_artifact("graph.png")
+    model_info = mlflow.langchain.log_model(
+        lc_model="chain.py",
+        streamable=False,
+        model_config="config.yaml",
+        artifact_path="graph",
+        signature=explicit_signature,
+        input_example=input_example,
+        code_paths=[
+            "nodes",
+            "prompts",
+            "resources",
+            "state.py",
+            "graph.py",
+            "config.utils.py",
+        ],
+        resources=[
+            DatabricksVectorSearchIndex(index_name=vector_search_index_name),
+            DatabricksServingEndpoint(endpoint_name=model_name),
+        ],
+        pip_requirements="requirements.txt",
+    )
 
-  model_uri = model_info.model_uri
+    mlflow.log_artifact("graph.png")
 
-  loaded_app = mlflow.pyfunc.load_model(model_uri)
-  for example in input_examples:
-    loaded_app.predict(example)
+    model_uri = model_info.model_uri
+
+    loaded_app = mlflow.pyfunc.load_model(model_uri)
+    for example in input_examples:
+        loaded_app.predict(example)
 
 print(model_uri)
 
@@ -151,10 +154,9 @@ validate_serving_input(model_uri, serving_payload)
 
 mlflow.set_registry_uri("databricks-uc")
 
-model_info = mlflow.register_model(model_uri, 
-                                   name=uc_model,
-                                   tags={"model_type": "chain",
-                                         "streaming": False})
+model_info = mlflow.register_model(
+    model_uri, name=uc_model, tags={"model_type": "chain", "streaming": False}
+)
 
 # COMMAND ----------
 
@@ -166,10 +168,9 @@ from databricks.agents import deploy
 from config.utils import load_config
 
 mlflow_config = load_config("mlflow")
-uc_model = mlflow_config.get('uc_model')
+uc_model = mlflow_config.get("uc_model")
 
-deployment_info = deploy(model_name=uc_model, 
-                         model_version=model_info.version)
+deployment_info = deploy(model_name=uc_model, model_version=model_info.version)
 
 # COMMAND ----------
 
@@ -179,13 +180,13 @@ deployment_info = deploy(model_name=uc_model,
 
 # COMMAND ----------
 
-# MAGIC %md Query the endpoint using the Python API. 
+# MAGIC %md Query the endpoint using the Python API.
 # MAGIC
 # MAGIC These look good
 
 # COMMAND ----------
 
-from pprint import pprint 
+from pprint import pprint
 from mlflow.deployments import get_deploy_client
 from data.input_examples import input_examples
 
@@ -195,8 +196,8 @@ endpoint_name = f"agents_{'main.default.mlc_langgraph_model'.replace('.', '-')}"
 
 endpoint_results = []
 for example in input_examples:
-  result = deploy_client.predict(endpoint=endpoint_name, inputs=example)
-  endpoint_results.append(result)
+    result = deploy_client.predict(endpoint=endpoint_name, inputs=example)
+    endpoint_results.append(result)
 
 # COMMAND ----------
 
