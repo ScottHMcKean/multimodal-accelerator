@@ -73,6 +73,10 @@ display(combined)
 
 # COMMAND ----------
 
+display(spark.table('shm.multimodal.combined_chunks'))
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC ALTER TABLE shm.multimodal.combined_chunks
 # MAGIC SET TBLPROPERTIES (delta.enableChangeDataFeed = true)

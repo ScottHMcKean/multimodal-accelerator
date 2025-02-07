@@ -1,0 +1,8 @@
+command: [
+  "python",
+  "gradio_vector_search.py"
+]
+
+env:
+  - name: "ENVIRONMENT_VARIABLE"
+    valueFrom: "serving-endpoint"
