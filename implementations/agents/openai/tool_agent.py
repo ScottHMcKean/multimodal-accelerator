@@ -1,104 +1,106 @@
 from databricks.sdk import WorkspaceClient
 from openai import OpenAI
 import openai
-import pandas as pd
-from typing import Any, Union, Dict, List, Optional
+from typing import List, Optional
 from mlflow.entities import Document
 import mlflow
-from mlflow.pyfunc import ChatModel
-from mlflow.types.llm import ChatCompletionResponse, ChatMessage, ChatParams, ChatChoice
+from mlflow.types.llm import ChatCompletionResponse, ChatMessage, ChatParams
 from dataclasses import asdict
-import dataclasses
 import json
 import backoff
+import mlflow
+from maud.agent.config import parse_config
 
-DEV_CONFIG_FILE = "src/maud/configs/agent_config.yaml"
 
 class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
     """
     Retriever Calling Agent
     """
+
     def __init__(self):
         """
         Initialize the OpenAI SDK client connected to Model Serving.
         Load the Agent's configuration from MLflow Model Config.
         """
         # When this Agent is deployed to Model Serving, the configuration loaded here is replaced with the config passed to mlflow.pyfunc.log_model(model_config=...)
-        self.config = mlflow.models.ModelConfig(development_config=DEV_CONFIG_FILE)
+
+        mlflow_config = mlflow.models.ModelConfig(development_config="./config.yaml")
+        maud_config = parse_config(mlflow_config)
 
         # Model Endpoint
         # Initialize OpenAI SDK connected to Model Serving
         llm_config = self.config.get("llm")
         w = WorkspaceClient()
         self.llm_client: OpenAI = w.serving_endpoints.get_open_ai_client()
-        
+
         # Vector Search
         vs_config = self.config.get("vector_search")
         mlflow.models.set_retriever_schema(
             name=vs_config.get("index_name"),
-            primary_key= vs_config.get('primary_key'),
-            text_column= vs_config.get('text_column'),
-            doc_uri= vs_config.get('doc_uri'),
+            primary_key=vs_config.get("primary_key"),
+            text_column=vs_config.get("text_column"),
+            doc_uri=vs_config.get("doc_uri"),
         )
 
         # OpenAI-formatted function for the retriever tool
-        self.retriever_tool_spec = [{
-            "type": "function",
-            "function": {
-                "name": vs_config.get("tool_name"),
-                "description": vs_config.get("tool_description"),
-                "parameters": {
-                    "type": "object",
-                    "required": ["query"],
-                    "additionalProperties": False,
-                    "properties": {
-                        "query": {
-                            "description": "query to look up in retriever",
-                            "type": "string",
-                        }
+        self.retriever_tool_spec = [
+            {
+                "type": "function",
+                "function": {
+                    "name": vs_config.get("tool_name"),
+                    "description": vs_config.get("tool_description"),
+                    "parameters": {
+                        "type": "object",
+                        "required": ["query"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "query": {
+                                "description": "query to look up in retriever",
+                                "type": "string",
+                            }
+                        },
                     },
                 },
-            },
-        }]
+            }
+        ]
 
         # Get workspace client to call vector search
         self.workspace_client = WorkspaceClient()
 
         # Identify the function used as the retriever tool
-        self.tool_functions = {
-            vs_config.get("tool_name"): self.retrieve_docs
-        }
+        self.tool_functions = {vs_config.get("tool_name"): self.retrieve_docs}
 
     @mlflow.trace(name="rag_agent", span_type="AGENT")
     def predict(
-        self, context=None, messages: List[ChatMessage]=None, params: Optional[ChatParams] = None
+        self,
+        context=None,
+        messages: List[ChatMessage] = None,
+        params: Optional[ChatParams] = None,
     ) -> ChatCompletionResponse:
         """
         Primary function that takes a user's request and generates a response.
         """
         if messages is None:
             raise ValueError("predict(...) called without `messages` parameter.")
-        
+
         # Convert all input messages to dict from ChatMessage
         messages = convert_chat_messages_to_dict(messages)
 
         # Add system prompt
         request = {
-                "messages": [
-                    {"role": "system", "content": self.config.get('system_prompt')},
-                    *messages,
-                ],
-                "tool_choice": "required"
-            }
-            
+            "messages": [
+                {"role": "system", "content": self.config.get("system_prompt")},
+                *messages,
+            ],
+            "tool_choice": "required",
+        }
+
         # Ask the LLM to call tools & generate the response
-        output= self.recursively_call_and_run_tools(
-            **request
-        )
-        
+        output = self.recursively_call_and_run_tools(**request)
+
         # Convert response to ChatCompletionResponse dataclass
         return ChatCompletionResponse.from_dict(output)
-    
+
     @mlflow.trace(span_type="RETRIEVER", name="vector_search_retriever")
     def retrieve_docs(self, query: str) -> List[dict]:
         """
@@ -119,9 +121,9 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
 
         vs_config = self.config.get("vector_search")
         all_cols = [
-            vs_config.get('primary_key'), 
-            vs_config.get('text_column'), 
-            vs_config.get('doc_uri')
+            vs_config.get("primary_key"),
+            vs_config.get("text_column"),
+            vs_config.get("doc_uri"),
         ] + vs_config.get("other_columns", [])
 
         results = traced_search(
@@ -157,12 +159,12 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
                     for i, field in enumerate(item[0:-1]):
                         metadata[column_names[i]["name"]] = field
                     # put contents of the chunk into page_content
-                    text_col_name = vs_config.get('text_column')
+                    text_col_name = vs_config.get("text_column")
                     page_content = metadata[text_col_name]
                     del metadata[text_col_name]
 
                     # put the primary key into id
-                    id_col_name = vs_config.get('primary_key')
+                    id_col_name = vs_config.get("primary_key")
                     id = metadata[id_col_name]
                     del metadata[id_col_name]
 
@@ -170,7 +172,7 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
                     docs.append(asdict(doc))
 
         return docs
-    
+
     ##
     # Helper functions below
     ##
@@ -193,14 +195,15 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
         llm_config = self.config.get("llm")
 
         request = {
-            "messages": messages, 
-            "temperature": llm_config.get("temperature"), 
-            "max_tokens": llm_config.get("max_tokens"),  
-            "tools": self.retriever_tool_spec
-            }
-        
+            "messages": messages,
+            "temperature": llm_config.get("temperature"),
+            "max_tokens": llm_config.get("max_tokens"),
+            "tools": self.retriever_tool_spec,
+        }
+
         return self.completions_with_backoff(
-            model=llm_config.get("endpoint_name"), **request,      
+            model=llm_config.get("endpoint_name"),
+            **request,
         )
 
     @mlflow.trace(span_type="CHAIN")
@@ -224,8 +227,8 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
                     with mlflow.start_span(
                         name="execute_tool", span_type="TOOL"
                     ) as span:
-                        function = tool_call.function  
-                        args = json.loads(function.arguments)  
+                        function = tool_call.function
+                        args = json.loads(function.arguments)
                         span.set_inputs(
                             {
                                 "function_name": function.name,
@@ -240,17 +243,17 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
                             "role": "tool",
                             "tool_call_id": tool_call.id,
                             "content": result,
-                        } 
+                        }
 
                         tool_messages.append(tool_message)
                         span.set_outputs({"new_message": tool_message})
-                assistant_message_dict = assistant_message.dict().copy()  
+                assistant_message_dict = assistant_message.dict().copy()
                 del assistant_message_dict["content"]
-                del assistant_message_dict["function_call"] 
-                
+                del assistant_message_dict["function_call"]
+
                 if "audio" in assistant_message_dict:
                     del assistant_message_dict["audio"]  # hack to make llama70b work
-                
+
                 messages = (
                     messages
                     + [
@@ -259,7 +262,7 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
                     + tool_messages
                 )
                 i += 1
-       
+
         # TODO: Handle more gracefully
         raise "ERROR: max iter reached"
 
@@ -269,16 +272,20 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
         """
         result = tool(**args)
         return json.dumps(result)
-        
+
+
 def convert_chat_messages_to_dict(messages: List[ChatMessage]):
     new_messages = []
     for message in messages:
         if type(message) == ChatMessage:
             # Remove any keys with None values
-            new_messages.append({k: v for k, v in asdict(message).items() if v is not None})
+            new_messages.append(
+                {k: v for k, v in asdict(message).items() if v is not None}
+            )
         else:
             new_messages.append(message)
     return new_messages
-    
+
+
 # tell MLflow logging where to find the agent's code
 mlflow.models.set_model(FunctionCallingAgent())
