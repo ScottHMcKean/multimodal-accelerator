@@ -18,8 +18,7 @@ sys.path.append('./maud')
 CATALOG = 'shm'
 SCHEMA = 'multimodal'
 
-# USER INFO
-USERNAME = dbutils.notebook.entry_point.getDbutils().notebook().getContext().tags().apply('user')
+USERNAME = dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
 
 ROOT_PATH = "/".join(dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get().split('/')[:-1])
 
@@ -61,7 +60,3 @@ for volume_name in [BRONZE_PATH, SILVER_PATH, GOLD_PATH]:
         w.volumes.create(catalog_name=CATALOG, schema_name=SCHEMA, name=volume_name)
     except:
         log.info(f"{volume_name} volume exists")
-
-# COMMAND ----------
-
-

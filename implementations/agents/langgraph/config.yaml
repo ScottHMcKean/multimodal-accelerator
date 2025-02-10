@@ -1,5 +1,7 @@
 agent:
   streaming: False
+  experiment_name: multimodal-langgraph
+  uc_model_name: None
 model:
   endpoint_name: databricks-meta-llama-3-3-70b-instruct
   parameters:

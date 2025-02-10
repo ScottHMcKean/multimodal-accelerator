@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import List
+from typing import List, Optional
 import mlflow
 from pathlib import Path
 
@@ -61,8 +61,8 @@ class RetrieverConfig(ConfigModel):
 
 class AgentConfig(ConfigModel):
     streaming: bool = False
-    experiment_location: str
-    uc_model_name: str
+    experiment_location: Optional[str] = None
+    uc_model_name: Optional[str] = None
 
 
 class MaudConfig(ConfigModel):
