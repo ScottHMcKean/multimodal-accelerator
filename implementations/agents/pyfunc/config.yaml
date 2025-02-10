@@ -14,7 +14,7 @@ retriever:
     k: 3
     query_type: ann
     score_threshold: 0
-  schema:
+  mapping:
     chunk_text: text
     document_uri: img_path
     primary_key: id

@@ -25,8 +25,10 @@ from maud.agent.config import parse_config
 import os
 
 root_dir = Path(os.getcwd())
-implementation_path = root_dir / 'implementations' / 'agents' / 'langgraph' 
-mlflow_config = mlflow.models.ModelConfig(development_config=implementation_path / 'config.yaml')
+implementation_path = root_dir / "implementations" / "agents" / "langgraph"
+mlflow_config = mlflow.models.ModelConfig(
+    development_config=implementation_path / "config.yaml"
+)
 maud_config = parse_config(mlflow_config)
 
 # COMMAND ----------
@@ -90,10 +92,10 @@ chain = app | RunnableLambda(graph_state_to_chat_type)
 # COMMAND ----------
 
 input_example = {
-        "messages": [
-            {"role": "human", "content": "What is the factor of safety for fabric straps?"}
-        ]
-    }
+    "messages": [
+        {"role": "human", "content": "What is the factor of safety for fabric straps?"}
+    ]
+}
 
 with mlflow.start_run():
     mlflow.langchain.autolog()
@@ -116,28 +118,32 @@ mlflow.set_experiment(f"/Users/{USERNAME}/multimodal-langgraph")
 
 # Setup retriever schema
 mlflow.models.set_retriever_schema(
-    primary_key=maud_config.retriever.schema.primary_key,
-    text_column=maud_config.retriever.schema.chunk_text,
-    doc_uri=maud_config.retriever.schema.document_uri  
+    primary_key=maud_config.retriever.mapping.primary_key,
+    text_column=maud_config.retriever.mapping.chunk_text,
+    doc_uri=maud_config.retriever.mapping.document_uri,
 )
 
 # Signature
 from mlflow.models import ModelSignature
 from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, CHAT_MODEL_OUTPUT_SCHEMA
+
 signature = ModelSignature(
-  inputs=CHAT_MODEL_INPUT_SCHEMA, 
-  outputs=CHAT_MODEL_OUTPUT_SCHEMA
-  )
+    inputs=CHAT_MODEL_INPUT_SCHEMA, outputs=CHAT_MODEL_OUTPUT_SCHEMA
+)
 
 # Setup passthrough resources
-from mlflow.models.resources import DatabricksVectorSearchIndex, DatabricksServingEndpoint
+from mlflow.models.resources import (
+    DatabricksVectorSearchIndex,
+    DatabricksServingEndpoint,
+)
+
 databricks_resources = [
     DatabricksServingEndpoint(endpoint_name=maud_config.model.endpoint_name),
     DatabricksVectorSearchIndex(index_name=maud_config.retriever.index_name),
 ]
 
 # Get packages from requirements to set standard environments
-with open('requirements.txt', 'r') as file:
+with open("requirements.txt", "r") as file:
     packages = file.readlines()
     package_list = [pkg.strip() for pkg in packages]
 
@@ -146,8 +152,8 @@ with open('requirements.txt', 'r') as file:
 # Log the model
 with mlflow.start_run():
     logged_agent_info = mlflow.langchain.log_model(
-        lc_model=str(implementation_path / 'agent.py'),
-        model_config=str(implementation_path / 'config.yaml'),
+        lc_model=str(implementation_path / "agent.py"),
+        model_config=str(implementation_path / "config.yaml"),
         pip_requirements=packages,
         artifact_path="agent",
         registered_model_name=maud_config.agent.uc_model_name,
@@ -165,7 +171,9 @@ with mlflow.start_run():
 
 # COMMAND ----------
 
-reloaded = mlflow.langchain.load_model(f"models:/{maud_config.agent.uc_model_name}/{logged_agent_info.registered_model_version}")
+reloaded = mlflow.langchain.load_model(
+    f"models:/{maud_config.agent.uc_model_name}/{logged_agent_info.registered_model_version}"
+)
 result = reloaded.invoke(input_example)
 
 # COMMAND ----------
@@ -185,7 +193,7 @@ client = get_deploy_client("databricks")
 deploy_name = "multimodal-langgraph"
 
 deployment_info = agents.deploy(
-  maud_config.agent.uc_model_name, 
-  logged_agent_info.registered_model_version,
-  scale_to_zero=True
-  )
+    maud_config.agent.uc_model_name,
+    logged_agent_info.registered_model_version,
+    scale_to_zero=True,
+)

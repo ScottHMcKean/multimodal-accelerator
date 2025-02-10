@@ -25,7 +25,7 @@ class ModelConfig(ConfigModel):
     parameters: ModelParameters
 
 
-class RetrieverSchema(ConfigModel):
+class RetrieverMapping(ConfigModel):
     chunk_text: str
     document_uri: str
     primary_key: str
@@ -51,11 +51,13 @@ class RetrieverParameters(ConfigModel):
 
 
 class RetrieverConfig(ConfigModel):
+    tool_name: Optional[str] = None
+    tool_description: Optional[str] = None
     endpoint_name: str
     index_name: str
     embedding_model: str
     parameters: RetrieverParameters
-    schema: RetrieverSchema
+    mapping: RetrieverMapping
     chunk_template: str = "Passage: {chunk_text}\n Document URI: {document_uri}\n"
 
 

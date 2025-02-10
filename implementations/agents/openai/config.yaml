@@ -1,5 +1,7 @@
 agent:
   streaming: False
+  experiment_location: /Users/scott.mckean/Repos/multimodal-accelerator/experiments/agent_openai
+  uc_model_name: shm.multimodal.agent_openai
 model:
   endpoint_name: databricks-meta-llama-3-3-70b-instruct
   parameters:
@@ -9,12 +11,14 @@ retriever:
   endpoint_name: one-env-shared-endpoint-3
   index_name: shm.multimodal.multimodal_index
   embedding_model: databricks-gte-large-en
+  tool_name: retrieve_docs
+  tool_description: Retrieve documents from the retriever
   search_type:
   parameters:
     k: 3
     query_type: ann
     score_threshold: 0
-  schema:
+  mapping:
     chunk_text: text
     document_uri: img_path
     primary_key: id
