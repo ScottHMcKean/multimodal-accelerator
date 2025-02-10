@@ -12,17 +12,20 @@
 
 import mlflow
 
-DEV_CONFIG_FILE = 'src/maud/configs/agent_config.yaml'
-AGENT_FILE = 'src/maud/agents/tool_agent.py'
+DEV_CONFIG_FILE = "src/maud/configs/agent_config.yaml"
+AGENT_FILE = "src/maud/agents/tool_agent.py"
 config = mlflow.models.ModelConfig(development_config=DEV_CONFIG_FILE)
 
 # COMMAND ----------
 
-from maud.agents.tool_agent import FunctionCallingAgent
+from implementations.agents.openai.agent import FunctionCallingAgent
+
 fc_agent = FunctionCallingAgent()
-response = fc_agent.predict(messages=[
-  {"role": "user", "content": "What is the factor of safety for strapping?"}
-  ])
+response = fc_agent.predict(
+    messages=[
+        {"role": "user", "content": "What is the factor of safety for strapping?"}
+    ]
+)
 
 # COMMAND ----------
 
@@ -30,7 +33,11 @@ import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.types import Schema, ColSpec
 from mlflow.models.signature import ModelSignature
-from mlflow.models.rag_signatures import ChatCompletionRequest, ChatCompletionResponse, StringResponse
+from mlflow.models.rag_signatures import (
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    StringResponse,
+)
 from mlflow.models.resources import (
     DatabricksVectorSearchIndex,
     DatabricksServingEndpoint,
@@ -47,7 +54,7 @@ input_example = {
 
 with mlflow.start_run():
     # Set the registry URI to Unity Catalog if needed
-    mlflow.set_registry_uri('databricks-uc')
+    mlflow.set_registry_uri("databricks-uc")
 
     # Define the list of Databricks resources needed to serve the agent
     list_of_databricks_resources = [
@@ -58,17 +65,17 @@ with mlflow.start_run():
     logged_agent_info = mlflow.pyfunc.log_model(
         python_model=AGENT_FILE,
         model_config=DEV_CONFIG_FILE,
-        artifact_path='agent',
+        artifact_path="agent",
         pip_requirements=[
             "mlflow>=2.20.0",
             "backoff",
             "databricks-agents",
             "databricks-sdk[openai]",
-            "databricks-vectorsearch"
+            "databricks-vectorsearch",
         ],
-        registered_model_name='shm.multimodal.tool_agent',
+        registered_model_name="shm.multimodal.tool_agent",
         input_example=input_example,
-        resources=list_of_databricks_resources
+        resources=list_of_databricks_resources,
     )
 
     print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")
@@ -81,14 +88,14 @@ with mlflow.start_run():
 # COMMAND ----------
 
 reloaded = mlflow.pyfunc.load_model(
-  f"models:/shm.multimodal.tool_agent/{logged_agent_info.registered_model_version}"
-  )
+    f"models:/shm.multimodal.tool_agent/{logged_agent_info.registered_model_version}"
+)
 result = reloaded.predict(input_example)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Deploy 
+# MAGIC ## Deploy
 # MAGIC Now we deploy the model
 
 # COMMAND ----------

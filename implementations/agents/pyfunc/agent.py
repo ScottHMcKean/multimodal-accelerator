@@ -13,7 +13,6 @@ from maud.agent.nodes import (
     make_context_generation_node,
 )
 from maud.agent.utils import format_chat_response_for_mlflow
-
 from langgraph.graph import StateGraph, START, END
 
 
@@ -34,7 +33,7 @@ class GraphChatModel(ChatModel):
             development_config="./config.yaml"
         )
         self.maud_config = parse_config(self.mlflow_config)
-        self.app = self.make_graph()
+        self.make_graph()
         mlflow.langchain.autolog()
 
     def make_graph(self):
@@ -70,25 +69,15 @@ class GraphChatModel(ChatModel):
         """
         messages = {"messages": [message.to_dict() for message in messages]}
         for event in self.app.stream(messages):
-
-            if "generation_with_history" in event:
-                rewritten_question = event["generation_with_history"][
-                    "generated_question"
-                ][-1]["content"]
-                rewritten_question_with_context = f"""To incorporate context from our conversation, I've rewritten your question as:
-       
-        '{rewritten_question}'
-        """
-                yield format_chat_response_for_mlflow(
-                    rewritten_question_with_context, stream=True
-                )
-
-            if "generation_no_history" in event:
-                message_history = event["generation_no_history"]["messages"]
-                answer = message_history[-1]["content"]
-                yield format_chat_response_for_mlflow(
-                    answer, message_history=message_history, stream=True
-                )
+            message_history = event["messages"]
+            documents = event.get("documents")
+            answer = message_history[-1]["content"]
+            yield format_chat_response_for_mlflow(
+                answer,
+                message_history=message_history,
+                documents=documents,
+                stream=True,
+            )
 
     def predict(self, context, messages, params=None):
         """
@@ -104,8 +93,11 @@ class GraphChatModel(ChatModel):
         messages = {"messages": [message.to_dict() for message in messages]}
         generation = self.app.invoke(messages)
         message_history = generation["messages"]
+        documents = generation.get("documents")
         answer = message_history[-1]["content"]
-        return format_chat_response_for_mlflow(answer, message_history=message_history)
+        return format_chat_response_for_mlflow(
+            answer, history=message_history, documents=documents
+        )
 
 
 mlflow.models.set_model(GraphChatModel())

@@ -11,21 +11,21 @@ import backoff
 import mlflow
 from maud.agent.config import parse_config
 
+mlflow_config = mlflow.models.ModelConfig(development_config="./config.yaml")
+maud_config = parse_config(mlflow_config)
+
 
 class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
     """
     Retriever Calling Agent
     """
 
-    def __init__(self):
+    def __init__(self, config):
         """
         Initialize the OpenAI SDK client connected to Model Serving.
         Load the Agent's configuration from MLflow Model Config.
         """
         # When this Agent is deployed to Model Serving, the configuration loaded here is replaced with the config passed to mlflow.pyfunc.log_model(model_config=...)
-
-        mlflow_config = mlflow.models.ModelConfig(development_config="./config.yaml")
-        maud_config = parse_config(mlflow_config)
 
         # Model Endpoint
         # Initialize OpenAI SDK connected to Model Serving
@@ -288,4 +288,5 @@ def convert_chat_messages_to_dict(messages: List[ChatMessage]):
 
 
 # tell MLflow logging where to find the agent's code
-mlflow.models.set_model(FunctionCallingAgent())
+agent = FunctionCallingAgent()
+mlflow.models.set_model(agent)
