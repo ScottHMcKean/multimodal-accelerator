@@ -9,10 +9,8 @@ from dataclasses import asdict
 import json
 import backoff
 import mlflow
-from maud.agent.config import parse_config
-
-mlflow_config = mlflow.models.ModelConfig(development_config="./config.yaml")
-maud_config = parse_config(mlflow_config)
+import os
+from maud.agent.config import parse_config, MaudConfig
 
 
 class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
@@ -20,26 +18,31 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
     Retriever Calling Agent
     """
 
-    def __init__(self, config=maud_config):
+    def __init__(self, config: MaudConfig = None):
         """
         Initialize the OpenAI SDK client connected to Model Serving.
         Load the Agent's configuration from MLflow Model Config.
         """
-        # When this Agent is deployed to Model Serving, the configuration loaded here is replaced with the config passed to mlflow.pyfunc.log_model(model_config=...)
+        if config is None:
+            config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+            self.mlflow_config = mlflow.models.ModelConfig(
+                development_config=config_path
+            )
+            self.maud_config = parse_config(self.mlflow_config)
+        else:
+            self.maud_config = config
 
-        # Model Endpoint
-        # Initialize OpenAI SDK connected to Model Serving
-        llm_config = self.config.get("llm")
-        w = WorkspaceClient()
-        self.llm_client: OpenAI = w.serving_endpoints.get_open_ai_client()
+        self.workspace_client = WorkspaceClient()
+        self.llm_client: OpenAI = (
+            self.workspace_client.serving_endpoints.get_open_ai_client()
+        )
 
         # Vector Search
-        vs_config = self.config.get("vector_search")
         mlflow.models.set_retriever_schema(
-            name=vs_config.get("index_name"),
-            primary_key=vs_config.get("primary_key"),
-            text_column=vs_config.get("text_column"),
-            doc_uri=vs_config.get("doc_uri"),
+            name=self.maud_config.retriever.index_name,
+            primary_key=self.maud_config.retriever.mapping.primary_key,
+            text_column=self.maud_config.retriever.mapping.chunk_text,
+            doc_uri=self.maud_config.retriever.mapping.document_uri,
         )
 
         # OpenAI-formatted function for the retriever tool
@@ -47,8 +50,8 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
             {
                 "type": "function",
                 "function": {
-                    "name": vs_config.get("tool_name"),
-                    "description": vs_config.get("tool_description"),
+                    "name": self.maud_config.retriever.tool_name,
+                    "description": self.maud_config.retriever.tool_description,
                     "parameters": {
                         "type": "object",
                         "required": ["query"],
@@ -64,11 +67,8 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
             }
         ]
 
-        # Get workspace client to call vector search
-        self.workspace_client = WorkspaceClient()
-
         # Identify the function used as the retriever tool
-        self.tool_functions = {vs_config.get("tool_name"): self.retrieve_docs}
+        self.tool_functions = {self.maud_config.retriever.tool_name: self.retrieve_docs}
 
     @mlflow.trace(name="rag_agent", span_type="AGENT")
     def predict(
@@ -89,7 +89,7 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
         # Add system prompt
         request = {
             "messages": [
-                {"role": "system", "content": self.config.get("system_prompt")},
+                {"role": "system", "content": self.maud_config.agent.system_prompt},
                 *messages,
             ],
             "tool_choice": "required",
@@ -119,31 +119,23 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
             span_type="FUNCTION",
         )
 
-        vs_config = self.config.get("vector_search")
-        all_cols = [
-            vs_config.get("primary_key"),
-            vs_config.get("text_column"),
-            vs_config.get("doc_uri"),
-        ] + vs_config.get("other_columns", [])
-
         results = traced_search(
-            index_name=vs_config.get("index_name"),
+            index_name=self.maud_config.retriever.index_name,
             query_text=query,
-            columns=all_cols,
-            **vs_config.get("parameters"),
+            columns=self.maud_config.retriever.mapping.all_columns,
+            **self.maud_config.retriever.parameters,
         )
 
         # We turn the config into a dict and pass it here
-        doc_similarity_threshold = 0
+
         return self.convert_vector_search_to_documents(
-            results.as_dict(), vs_config.get("doc_similarity_threshold")
+            results.as_dict(), self.maud_config.retriever.score_threshold
         )
 
     @mlflow.trace(span_type="PARSER")
     def convert_vector_search_to_documents(
         self, vs_results, vector_search_threshold
     ) -> List[dict]:
-        vs_config = self.config.get("vector_search")
 
         column_names = []
         for column in vs_results["manifest"]["columns"]:
@@ -159,12 +151,12 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
                     for i, field in enumerate(item[0:-1]):
                         metadata[column_names[i]["name"]] = field
                     # put contents of the chunk into page_content
-                    text_col_name = vs_config.get("text_column")
+                    text_col_name = self.maud_config.retriever.mapping.chunk_text
                     page_content = metadata[text_col_name]
                     del metadata[text_col_name]
 
                     # put the primary key into id
-                    id_col_name = vs_config.get("primary_key")
+                    id_col_name = self.maud_config.retriever.mapping.primary_key
                     id = metadata[id_col_name]
                     del metadata[id_col_name]
 
@@ -192,17 +184,15 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
         """
         Helper: Call the LLM configured via the ModelConfig using the OpenAI SDK
         """
-        llm_config = self.config.get("llm")
-
         request = {
             "messages": messages,
-            "temperature": llm_config.get("temperature"),
-            "max_tokens": llm_config.get("max_tokens"),
+            "temperature": self.maud_config.model.parameters.temperature,
+            "max_tokens": self.maud_config.model.parameters.max_tokens,
             "tools": self.retriever_tool_spec,
         }
 
         return self.completions_with_backoff(
-            model=llm_config.get("endpoint_name"),
+            model=self.maud_config.model.endpoint_name,
             **request,
         )
 

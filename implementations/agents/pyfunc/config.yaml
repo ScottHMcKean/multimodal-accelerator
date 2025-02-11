@@ -1,6 +1,6 @@
 agent:
   streaming: False
-  experiment_location: /Users/scott.mckean/Repos/multimodal-accelerator/experiments/agent_pyfunc
+  experiment_location: /Users/scott.mckean/agent_pyfunc
   uc_model_name: shm.multimodal.agent_pyfunc
 model:
   endpoint_name: databricks-meta-llama-3-3-70b-instruct

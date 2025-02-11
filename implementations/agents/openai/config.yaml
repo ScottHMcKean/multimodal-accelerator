@@ -1,7 +1,9 @@
 agent:
   streaming: False
-  experiment_location: /Users/scott.mckean/Repos/multimodal-accelerator/experiments/agent_openai
+  experiment_location: /Users/scott.mckean/agent_openai
   uc_model_name: shm.multimodal.agent_openai
+  system_prompt: |
+    You are a helpful assistant. Response with "So..." in front of your response.
 model:
   endpoint_name: databricks-meta-llama-3-3-70b-instruct
   parameters:
@@ -14,10 +16,10 @@ retriever:
   tool_name: retrieve_docs
   tool_description: Retrieve documents from the retriever
   search_type:
+  score_threshold: 0
   parameters:
     k: 3
     query_type: ann
-    score_threshold: 0
   mapping:
     chunk_text: text
     document_uri: img_path

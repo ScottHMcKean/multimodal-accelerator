@@ -47,7 +47,6 @@ class RetrieverMapping(ConfigModel):
 class RetrieverParameters(ConfigModel):
     k: int = 5
     query_type: str = "ann"
-    score_threshold: float = 0
 
 
 class RetrieverConfig(ConfigModel):
@@ -56,6 +55,7 @@ class RetrieverConfig(ConfigModel):
     endpoint_name: str
     index_name: str
     embedding_model: str
+    score_threshold: float = 0
     parameters: RetrieverParameters
     mapping: RetrieverMapping
     chunk_template: str = "Passage: {chunk_text}\n Document URI: {document_uri}\n"
