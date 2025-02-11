@@ -24,8 +24,9 @@ import numpy as np
 import mlflow.pyfunc
 
 endpoints = {
-  'langgraph': 'agents_shm-multimodal-retrieval_agent',
-  'tools': 'agents_shm-multimodal-tool_agent'
+  'langgraph': 'agents_shm-multimodal-agent_langgraph',
+  'pyfunc': 'agents_shm-multimodal-agent_pyfunc',
+  'tools': 'agents_shm-multimodal-agent_tools'
 }
 
 serving_endpoint_name = endpoints['tools']
@@ -33,7 +34,7 @@ serving_endpoint_name = endpoints['tools']
 API_URL = f"https://adb-984752964297111.11.azuredatabricks.net/serving-endpoints/{serving_endpoint_name}/invocations"
 API_TOKEN = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
 
-data = {"messages": [{"role":"user","content":"What is Databricks?"}]}
+data = {"messages": [{"role":"user","content":"What strapping material is permitted?"}]}
 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {API_TOKEN}"}
 response = requests.post(url=API_URL, json=data, headers=headers)
 
@@ -41,7 +42,8 @@ response.content
 
 # COMMAND ----------
 
-response.content
+import json
+json.loads(response.content)['custom_outputs']['message_history']
 
 # COMMAND ----------
 
@@ -86,5 +88,3 @@ except Exception as e:
 # MAGIC UI --> [Message] --> API --> [Message] --> UI
 # MAGIC
 # MAGIC But when dealing with detailed document retrieval, we need to ensure that we are passing images of the pages, tables, and pictures back to the UI, along with the LLM summary based on the augmented context.
-
-# COMMAND ----------

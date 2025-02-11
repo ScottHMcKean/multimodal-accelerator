@@ -1,3 +1,4 @@
+import os
 import mlflow
 from mlflow.pyfunc import ChatModel
 
@@ -6,7 +7,7 @@ from maud.agent.config import parse_config
 
 from maud.agent.retrievers import get_vector_retriever
 from databricks_langchain import ChatDatabricks
-
+from maud.agent.config import MaudConfig
 from maud.agent.states import get_state
 from maud.agent.nodes import (
     make_query_vector_database_node,
@@ -28,11 +29,16 @@ class GraphChatModel(ChatModel):
     by default as is the case when logging a langchain model flavor.
     """
 
-    def __init__(self):
-        self.mlflow_config = mlflow.models.ModelConfig(
-            development_config="./config.yaml"
-        )
-        self.maud_config = parse_config(self.mlflow_config)
+    def __init__(self, config: MaudConfig = None):
+        if config is None:
+            config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+            self.mlflow_config = mlflow.models.ModelConfig(
+                development_config=config_path
+            )
+            self.maud_config = parse_config(self.mlflow_config)
+        else:
+            self.maud_config = config
+
         self.make_graph()
         mlflow.langchain.autolog()
 
@@ -67,17 +73,32 @@ class GraphChatModel(ChatModel):
         last event returned from the stream will also include the message history
         as a custom output within the mlflow chat message type.
         """
-        messages = {"messages": [message.to_dict() for message in messages]}
+        if not isinstance(messages, dict):
+            messages = {"messages": [message.to_dict() for message in messages]}
+
+        # We only want to stream message events
         for event in self.app.stream(messages):
-            message_history = event["messages"]
-            documents = event.get("documents")
-            answer = message_history[-1]["content"]
-            yield format_chat_response_for_mlflow(
-                answer,
-                message_history=message_history,
-                documents=documents,
-                stream=True,
-            )
+            # pull the event values out of the dictionary
+            payload = next(iter(event.values()))
+            
+            # standard message response
+            if 'messages' in payload:
+                message_history = payload["messages"]
+                answer = message_history[-1]["content"]
+                yield format_chat_response_for_mlflow(
+                    answer,
+                    history=message_history,
+                    stream=True,
+                )
+
+            # custome retriever response
+            if 'documents' in payload:
+                answer = payload["context"]
+                yield format_chat_response_for_mlflow(
+                    answer,
+                    documents=payload["documents"],
+                    stream=True,
+                )
 
     def predict(self, context, messages, params=None):
         """
@@ -90,7 +111,9 @@ class GraphChatModel(ChatModel):
         Elements from the dictionary are retrieved and reformatted into the expected MLflow
         chat model type and are then returned.
         """
-        messages = {"messages": [message.to_dict() for message in messages]}
+        if not isinstance(messages, dict):
+            messages = {"messages": [message.to_dict() for message in messages]}
+            
         generation = self.app.invoke(messages)
         message_history = generation["messages"]
         documents = generation.get("documents")

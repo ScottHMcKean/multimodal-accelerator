@@ -20,7 +20,7 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
     Retriever Calling Agent
     """
 
-    def __init__(self, config):
+    def __init__(self, config=maud_config):
         """
         Initialize the OpenAI SDK client connected to Model Serving.
         Load the Agent's configuration from MLflow Model Config.
@@ -288,5 +288,4 @@ def convert_chat_messages_to_dict(messages: List[ChatMessage]):
 
 
 # tell MLflow logging where to find the agent's code
-agent = FunctionCallingAgent()
-mlflow.models.set_model(agent)
+mlflow.models.set_model(FunctionCallingAgent())
