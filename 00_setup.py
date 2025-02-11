@@ -42,6 +42,7 @@ log = logging.getLogger(__name__)
 # COMMAND ----------
 
 # Ensure volumes are ready
+from databricks.sdk.service.catalog import VolumeType
 from databricks.sdk import WorkspaceClient
 w = WorkspaceClient()
 
@@ -51,12 +52,20 @@ except:
     log.info(f"{CATALOG} catalog exists")
 
 try:
-    w.schemas.create(name=SCHEMA)
+    w.schemas.create(
+    catalog_name=CATALOG,
+    name=SCHEMA        
+    )
 except:
     log.info(f"{SCHEMA} catalog exists")
 
 for volume_name in [BRONZE_PATH, SILVER_PATH, GOLD_PATH]:
     try:
-        w.volumes.create(catalog_name=CATALOG, schema_name=SCHEMA, name=volume_name)
+        w.volumes.create(
+        catalog_name=CATALOG, 
+        schema_name=SCHEMA, 
+        name=volume_name,
+        volume_type=VolumeType.MANAGED
+        )
     except:
         log.info(f"{volume_name} volume exists")
