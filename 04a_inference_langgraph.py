@@ -186,9 +186,6 @@ from databricks import agents
 
 client = get_deploy_client("databricks")
 
-# Deploy the model to serving
-deploy_name = "multimodal-langgraph"
-
 deployment_info = agents.deploy(
     maud_config.agent.uc_model_name,
     logged_agent_info.registered_model_version,

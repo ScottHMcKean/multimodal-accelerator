@@ -35,7 +35,7 @@ maud_config = parse_config(mlflow_config)
 
 # COMMAND ----------
 
-from implementations.agents.openai.tool_agent import FunctionCallingAgent
+from implementations.agents.openai.agent import FunctionCallingAgent
 fc_agent = FunctionCallingAgent()
 response = fc_agent.predict(messages=[
   {"role": "user", "content": "What is the factor of safety for strapping?"}
@@ -60,28 +60,28 @@ input_example = {
 }
 
 # Set the registry URI to Unity Catalog if needed
-    mlflow.set_registry_uri('databricks-uc')
+mlflow.set_registry_uri('databricks-uc')
 
-list_of_databricks_resources = [
-        DatabricksServingEndpoint(endpoint_name=llm_config.get("endpoint_name")),
-        DatabricksVectorSearchIndex(index_name=vs_config.get("index_name")),
-    ]
+databricks_resources = [
+    DatabricksServingEndpoint(endpoint_name=maud_config.model.endpoint_name),
+    DatabricksVectorSearchIndex(index_name=maud_config.retriever.index_name),
+]
+
+# Get packages from requirements to set standard environments
+with open("requirements.txt", "r") as file:
+    packages = file.readlines()
+    package_list = [pkg.strip() for pkg in packages]
 
 with mlflow.start_run():
     logged_agent_info = mlflow.pyfunc.log_model(
-        python_model=AGENT_FILE,
-        model_config=DEV_CONFIG_FILE,
+        python_model=str(implementation_path / "agent.py"),
+        model_config=str(implementation_path / "config.yaml"),
         artifact_path='agent',
-        pip_requirements=[
-            "mlflow>=2.20.0",
-            "backoff",
-            "databricks-agents",
-            "databricks-sdk[openai]",
-            "databricks-vectorsearch"
-        ],
-        registered_model_name='shm.multimodal.tool_agent',
+        pip_requirements=packages,
+        code_paths=['maud'],
+        registered_model_name=maud_config.agent.uc_model_name,
         input_example=input_example,
-        resources=list_of_databricks_resources
+        resources=databricks_resources
     )
 
     print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")
@@ -94,8 +94,8 @@ with mlflow.start_run():
 # COMMAND ----------
 
 reloaded = mlflow.pyfunc.load_model(
-  f"models:/shm.multimodal.tool_agent/{logged_agent_info.registered_model_version}"
-  )
+    f"models:/{maud_config.agent.uc_model_name}/{logged_agent_info.registered_model_version}"
+)
 result = reloaded.predict(input_example)
 
 # COMMAND ----------
@@ -111,9 +111,8 @@ from databricks import agents
 
 client = get_deploy_client("databricks")
 
-# Deploy the model to serving
-deploy_name = "maud-agent"
-model_name = "shm.multimodal.tool_agent"
-model_version = logged_agent_info.registered_model_version
-
-deployment_info = agents.deploy(model_name, model_version)
+deployment_info = agents.deploy(
+    maud_config.agent.uc_model_name,
+    logged_agent_info.registered_model_version,
+    scale_to_zero=True,
+)
