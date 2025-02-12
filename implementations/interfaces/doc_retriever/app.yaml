@@ -1,7 +1,4 @@
-command: [
-  "python",
-  "gradio_maud.py"
-]
+command: ["python", "doc_retriever.py"]
 
 env:
   - name: "ENVIRONMENT_VARIABLE"

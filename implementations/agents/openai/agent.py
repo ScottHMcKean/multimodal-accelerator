@@ -92,6 +92,7 @@ class FunctionCallingAgent(mlflow.pyfunc.ChatModel):
                 {"role": "system", "content": self.maud_config.agent.system_prompt},
                 *messages,
             ],
+            "tools": self.tool_functions,
             "tool_choice": "required",
         }
 

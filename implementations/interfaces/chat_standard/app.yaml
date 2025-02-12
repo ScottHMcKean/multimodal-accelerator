@@ -1,8 +1,0 @@
-command: [
-  "python",
-  "gradio_maud.py"
-]
-
-env:
-  - name: "ENVIRONMENT_VARIABLE"
-    valueFrom: "serving-endpoint"

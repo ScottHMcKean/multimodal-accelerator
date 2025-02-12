@@ -65,14 +65,13 @@ def make_context_generation_node(
         chain = context_template | model | RunnableLambda(format_generation_assistant)
 
         last_msg = get_last_user_message(state)
-        question = last_msg
 
         if "context" in state:
             context = state["context"]
         else:
             context = ""
 
-        response = chain.invoke({"context": context, "question": question})
+        response = chain.invoke({"context": context, "question": last_msg})
 
         if config.agent.streaming:
             response = state["messages"] + response
