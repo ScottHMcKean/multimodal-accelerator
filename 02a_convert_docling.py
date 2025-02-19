@@ -44,7 +44,7 @@ from docling.pipeline.simple_pipeline import SimplePipeline
 
 # setup the conversion pipeline to extract images and tables automatically
 pdf_pipe_options = PdfPipelineOptions()
-pdf_pipe_options.images_scale = 2.0 #144 DPI
+pdf_pipe_options.images_scale = 2.0  # 144 DPI
 pdf_pipe_options.generate_page_images = True
 pdf_pipe_options.generate_picture_images = True
 pdf_pipe_options.generate_table_images = True
@@ -77,6 +77,7 @@ from docling_core.types.doc import (
     PictureClassificationClass,
     PictureClassificationData,
     PictureItem,
+    PictureAnnotation,
 )
 
 from docling.datamodel.base_models import InputFormat
@@ -87,8 +88,10 @@ from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
 
 # COMMAND ----------
 
+
 class ExamplePictureClassifierPipelineOptions(PdfPipelineOptions):
     do_picture_classifer: bool = True
+
 
 class ExamplePictureClassifierEnrichmentModel(BaseEnrichmentModel):
     def __init__(self, enabled: bool):
@@ -118,7 +121,15 @@ class ExamplePictureClassifierEnrichmentModel(BaseEnrichmentModel):
                 )
             )
 
+            element.annotations.append(
+                PictureDescriptionData(
+                    provenance="a llm model",
+                    text="This is a dummy description",
+                )
+            )
+
             yield element
+
 
 class ExamplePictureClassifierPipeline(StandardPdfPipeline):
     def __init__(self, pipeline_options: ExamplePictureClassifierPipelineOptions):
@@ -135,23 +146,24 @@ class ExamplePictureClassifierPipeline(StandardPdfPipeline):
     def get_default_options(cls) -> ExamplePictureClassifierPipelineOptions:
         return ExamplePictureClassifierPipelineOptions()
 
+
 # COMMAND ----------
 
-filename = 'FAA-2021-0268-0002.pdf'
+filename = "FAA-2021-0268-0002.pdf"
 input_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/{filename}")
 
 # COMMAND ----------
 
 logging.basicConfig(level=logging.INFO)
 
-pipeline_options = ExamplePictureClassifierPipelineOptions()
+pipeline_options = ExamplePictureClassifierPipelineOptions(llm_client)
 pipeline_options.images_scale = 2.0
 pipeline_options.generate_picture_images = True
 
-doc_converter = DocumentConverter(
+doc_converter = ExtendedDocumentConverter(
     format_options={
         InputFormat.PDF: PdfFormatOption(
-            pipeline_cls=ExamplePictureClassifierPipeline,
+            pipeline_cls=CustomPdfPipeline,
             pipeline_options=pipeline_options,
         )
     }
@@ -188,7 +200,7 @@ pdf_pipe_options
 from openai import OpenAI
 from pathlib import Path
 import time
-from doc_analysis.metadata import (
+from document.metadata import (
     save_page_metadata,
     save_table_metadata,
     save_picture_metadata,
@@ -212,10 +224,10 @@ for filename in filenames:
 input_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/{filename}")
 output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{SILVER_PATH}")
 converter = DoclingConverterAdapter(
-  input_path, 
-  output_dir,
-  allowed_formats=docling_allowed_formats,
-  format_options=docling_format_options
+    input_path,
+    output_dir,
+    allowed_formats=docling_allowed_formats,
+    format_options=docling_format_options,
 )
 
 # convert document
@@ -233,9 +245,9 @@ document.model_extra()
 
 # COMMAND ----------
 
-#iterative on files from the bronze path
-files = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}").glob('*')
-types = ['.xlsx', '.docx', '.pptx','.pdf']
+# iterative on files from the bronze path
+files = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}").glob("*")
+types = [".xlsx", ".docx", ".pptx", ".pdf"]
 filenames = [file.name for file in files if file.suffix in types]
 
 iter_results = {}
@@ -254,7 +266,6 @@ for filename in filenames:
     # convert document
     document = converter.convert()
 
-    
     converter.save_result()
 
     # get descriptions for pages, tables, and figures
