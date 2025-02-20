@@ -1,4 +1,13 @@
 # MAUD Docling Documentation
+MAUD extends the base Docling library to do additional metadata enrichment. There are two main processes in a docling converter pipeline - the build and the enrichment. We extend both in order to classify and describe pages and elements (figures and tables) within a document. The overally goal here is to enable production implementation of hierarchy and knowledge graph approaches to retrieval.
+
+## Build
+
+The build process does the conversion using the OCR engine.
+
+## Enrichment
+
+The enrichment process loops through elements in the document (after conversion) and adds additional metadata. The best built out enrichment pipeline right now is for figures (or Pictures in Docling terms).
 
 ## Custom Annotations
 
