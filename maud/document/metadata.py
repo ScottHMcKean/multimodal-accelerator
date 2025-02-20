@@ -7,6 +7,71 @@ from pyspark.sql.types import (
     IntegerType,
     DoubleType,
 )
+from typing import List, Literal, Annotated, Union, Optional
+from enum import Enum
+from pydantic import BaseModel, Field
+
+
+class ClassificationClass(BaseModel):
+    class_name: str
+    confidence: float
+
+
+class RelationshipData(BaseModel):
+    """Common relationship types in knowledge graphs."""
+
+    kind: Literal["relationship"] = "relationship"
+    IS_A: str = "is_a"
+    PART_OF: str = "part_of"
+    HAS_PROPERTY: str = "has_property"
+    RELATED_TO: str = "related_to"
+    CAUSES: str = "causes"
+    DEPENDS_ON: str = "depends_on"
+
+
+class NodeData(BaseModel):
+    kind: Literal["entity"] = "entity"
+    id: str
+    label: str
+    type: str
+    properties: Optional[dict]
+
+
+class ConnectionData(BaseModel):
+    """Connection between two nodes for a knowledge graph."""
+
+    kind: Literal["connection"] = "connection"
+    subject: NodeData
+    predicate: RelationshipData
+    object: NodeData
+
+
+class DescriptionData(BaseModel):
+    """Description"""
+
+    kind: Literal["description"] = "description"
+    text: str
+    provenance: str
+
+
+class ClassificationData(BaseModel):
+    """Classification"""
+
+    kind: Literal["classification"] = "classification"
+    provenance: str
+    predicted_classes: List[ClassificationClass]
+
+
+MetaDataType = Annotated[
+    Union[
+        ClassificationData,
+        DescriptionData,
+        NodeData,
+        RelationshipData,
+        ConnectionData,
+    ],
+    Field(discriminator="kind"),
+]
 
 
 def clean_bbox(bbox_entry):

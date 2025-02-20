@@ -1,65 +1,3 @@
-# Databricks notebook source
-# MAGIC %md
-# MAGIC # Convert
-# MAGIC
-# MAGIC This module processes our bronze documents. It is the most involved of the modules but we leverage Docling as a framework to abstract away the layout analysis of a document. Docling takes a list of files in the volumes, parallelized over workers.
-# MAGIC
-# MAGIC In order to make this result useful downstream, we need to do three things:
-# MAGIC
-# MAGIC - Export the result to a reloadable json format
-# MAGIC - Save and export the images
-# MAGIC - Save and export the tables
-# MAGIC
-# MAGIC In order to get the exports, we can modify the defaults and generate page, picture, and table images. This really slows down the parsing pipeline, but is essential for our user interface to reload and serve everything.
-
-# COMMAND ----------
-
-# MAGIC %run ./00_setup
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC This section runs through the parsing and export of a single document. This takes a while since we are OCRing, extracting images, and analyzing the layout of each document. Docling provides a nice framework for exporting these documents as markdown files, both with linked and embedded images. This makes the downstream take of summarizing and converting images to text much easier, where we can even replace the images with a list of symbols references, description, caption etc.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Setup Docling Converter Options
-
-# COMMAND ----------
-
-import pandas as pd
-from pathlib import Path
-
-from docling_core.types.doc import ImageRefMode, PictureItem, TableItem
-from docling.datamodel.base_models import FigureElement, InputFormat, Table
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.datamodel.document import DoclingDocument
-from docling.document_converter import (
-    DocumentConverter,
-    PdfFormatOption,
-    WordFormatOption,
-)
-from docling.pipeline.simple_pipeline import SimplePipeline
-
-# setup the conversion pipeline to extract images and tables automatically
-pdf_pipe_options = PdfPipelineOptions()
-pdf_pipe_options.images_scale = 2.0  # 144 DPI
-pdf_pipe_options.generate_page_images = True
-pdf_pipe_options.generate_picture_images = True
-pdf_pipe_options.generate_table_images = True
-
-# TODO: remove ugly monkey chain for .ppt and .doc files - check for security risk with legacy format?
-setattr(InputFormat, "PPT", InputFormat.PPTX)
-
-docling_allowed_formats = [
-    InputFormat.PDF,
-    InputFormat.DOCX,
-    InputFormat.PPTX,
-    InputFormat.PPT,
-    InputFormat.XLSX,
-]
-
 docling_format_options = {
     InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipe_options),
     InputFormat.DOCX: WordFormatOption(pipeline_cls=SimplePipeline),
@@ -154,11 +92,6 @@ input_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/{filename}")
 
 # COMMAND ----------
 
-logging.basicConfig(level=logging.INFO)
-
-pipeline_options = ExamplePictureClassifierPipelineOptions()
-pipeline_options.images_scale = 2.0
-pipeline_options.generate_picture_images = True
 
 doc_converter = DocumentConverter(
     format_options={

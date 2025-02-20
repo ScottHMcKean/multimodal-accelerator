@@ -31,3 +31,7 @@ The output of the model looks a bit like this:
     }
 ]
 ```
+
+## Limitations
+
+- Docling currently does not support .ppt, .doc, and .xls files. We can hack a solution for this, but decided not to support these formats for now.

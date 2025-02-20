@@ -2,6 +2,8 @@
 
 This document guides you through running the solution accelerator.
 
+We use poetry to manage dependencies and virtual environments. We also use it to manage the testing framework and run coverage reports automatically. See pyproject.toml for more details.
+
 ## Development Setup with Poetry
 
 ### Quick Start
@@ -39,6 +41,7 @@ poetry shell
 4. Run tests:
 ```bash
 poetry run pytest
+poetry run pytest -m "not slow"
 ```
 
 5. Update dependencies:
