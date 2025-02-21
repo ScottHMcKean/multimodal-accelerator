@@ -28,10 +28,12 @@ from docling_core.types.doc.document import DocItemLabel
 
 from maud.document.extensions import get_openai_description
 from maud.document.metadata import MetaDataType
+from maud.document.chunkers import chunk_maud_document
 
 
 class ExtendedDocument(DoclingDocument):
     page_metadata: Dict[int, MetaDataType] = {}
+    input_hash: Path = None
 
     class Config:
         extra = "allow"
@@ -96,6 +98,7 @@ class MaudConverter(DocumentConverter):
         output_dir: Path,
         llm_client: OpenAI = None,
         llm_model: str = "gpt-4o-mini",
+        max_tokens: int = 200,
         overwrite: bool = False,
         **kwargs,
     ):
@@ -107,6 +110,7 @@ class MaudConverter(DocumentConverter):
         self.overwrite = overwrite
         self.llm_client = llm_client
         self.llm_model = llm_model
+        self.max_tokens = max_tokens
         self._hash_input()
         self._get_output_path()
         self.result = None
@@ -144,11 +148,12 @@ class MaudConverter(DocumentConverter):
         return True
 
     def convert(self, *args, **kwargs):
-        self.logger.info("Converting document")
-
         if self._validate_output_exists():
-            self.logger.info("Conversion exists, reloading document")
+            self.logger.info("Found existing conversion")
             self.document = self.load_document()
+            return self.document
+
+        self.logger.info("Converting document")
 
         self.result = super().convert(self.input_path, *args, **kwargs)
 
@@ -158,9 +163,11 @@ class MaudConverter(DocumentConverter):
                 llm_client=self.llm_client,
                 llm_model=self.llm_model,
             ).analyze_pages(self.result.document.pages),
+            input_hash=self._input_hash,
         )
 
         self.document = self.result.document
+        return self.document
 
     def load_document(self):
         self.logger.info("Loading document")
@@ -182,6 +189,9 @@ class MaudConverter(DocumentConverter):
         self.document.save_as_json(
             self._output_path / self.doc_file_name, image_mode=ImageRefMode.EMBEDDED
         )
+
+    def chunk(self):
+        return chunk_maud_document(self.document, max_tokens=self.max_tokens)
 
 
 class MAUDPipelineOptions(PdfPipelineOptions):
@@ -356,6 +366,8 @@ class TableDescriptionModel(BaseEnrichmentModel):
             caption = doc.add_text(
                 label=DocItemLabel.CAPTION,
                 text=description,
+                orig=description,
+                prov=element.prov[0],
             )
 
             element.captions.append(caption.get_ref())

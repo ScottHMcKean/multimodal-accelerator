@@ -230,17 +230,6 @@ for filename in filenames:
 
     converter.save_result()
 
-    # get descriptions for pages, tables, and figures
-    page_metadata = save_page_metadata(
-        document, client, converter._output_path, converter._input_hash
-    )
-    table_metadata = save_table_metadata(
-        document, client, converter._output_path, converter._input_hash
-    )
-    picture_metadata = save_picture_metadata(
-        document, client, converter._output_path, converter._input_hash
-    )
-
     result_summary = {
         "input_path": input_path,
         "input_hash": converter._input_hash,
