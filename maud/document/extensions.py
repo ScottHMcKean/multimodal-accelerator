@@ -12,14 +12,18 @@ def encode_pil_image_to_base64(pil_image):
 
 
 def get_open_ai_image_description(
-    client: OpenAI, image: Image.Image, image_type: str = "page", max_tokens: int = 200
+    client: OpenAI,
+    model: str,
+    image: Image.Image,
+    image_type: str = "page",
+    max_tokens: int = 200,
 ):
     assert image_type in ["page", "table", "picture"]
 
     img_bytes = encode_pil_image_to_base64(image)
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=model,
         messages=[
             {
                 "role": "user",

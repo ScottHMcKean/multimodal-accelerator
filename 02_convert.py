@@ -23,74 +23,36 @@
 
 # COMMAND ----------
 
+# Get LLM Client
+from openai import OpenAI
+from databricks.sdk import WorkspaceClient
+
+w = WorkspaceClient()
+
+workspace_client = WorkspaceClient()
+workspace_url = workspace_client.config.host
+token = workspace_client.config.token
+
+llm_model = "shm_gpt_4o_mini"
+llm_client = OpenAI(
+    api_key=token,
+    base_url=f"{workspace_url}/serving-endpoints",
+)
+
+# Test LLM Client
+llm_client.chat.completions.create(
+    model=llm_model,
+    messages=[{"role": "user", "content": "What is the capital of France?"}],
+)
+
+# COMMAND ----------
+
 # MAGIC %md
-# MAGIC ### Setup Docling Converter Options
+# MAGIC ### Setup Docling Converter
 
 # COMMAND ----------
 
-import pandas as pd
-from pathlib import Path
-
-from docling_core.types.doc import ImageRefMode, PictureItem, TableItem
-from docling.datamodel.base_models import FigureElement, InputFormat, Table
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.datamodel.document import DoclingDocument
-from docling.document_converter import (
-    DocumentConverter,
-    PdfFormatOption,
-    WordFormatOption,
-)
-from docling.pipeline.simple_pipeline import SimplePipeline
-
-# setup the conversion pipeline to extract images and tables automatically
-pdf_pipe_options = PdfPipelineOptions()
-pdf_pipe_options.images_scale = 2.0  # 144 DPI
-pdf_pipe_options.generate_page_images = True
-pdf_pipe_options.generate_picture_images = True
-pdf_pipe_options.generate_table_images = True
-
-# TODO: remove ugly monkey chain for .ppt and .doc files - check for security risk with legacy format?
-setattr(InputFormat, "PPT", InputFormat.PPTX)
-
-docling_allowed_formats = [
-    InputFormat.PDF,
-    InputFormat.DOCX,
-    InputFormat.PPTX,
-    InputFormat.PPT,
-    InputFormat.XLSX,
-]
-
-docling_format_options = {
-    InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipe_options),
-    InputFormat.DOCX: WordFormatOption(pipeline_cls=SimplePipeline),
-}
-
 # COMMAND ----------
-
-import logging
-from pathlib import Path
-from typing import Any, Iterable
-
-from docling_core.types.doc import (
-    DoclingDocument,
-    NodeItem,
-    PictureClassificationClass,
-    PictureClassificationData,
-    PictureItem,
-    PictureAnnotation,
-)
-
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.models.base_model import BaseEnrichmentModel
-from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
-
-# COMMAND ----------
-
-
-class ExamplePictureClassifierPipelineOptions(PdfPipelineOptions):
-    do_picture_classifer: bool = True
 
 
 class ExamplePictureClassifierEnrichmentModel(BaseEnrichmentModel):

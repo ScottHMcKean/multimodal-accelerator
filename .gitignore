@@ -1,7 +1,8 @@
 # MLFLow
 mlruns/
 **/mlruns/
-
+data/**
+data/messages/**
 tests/output
 
 

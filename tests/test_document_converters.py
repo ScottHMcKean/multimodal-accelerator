@@ -17,7 +17,7 @@ def test_converter_instantiation():
 @pytest.mark.slow
 def test_convert_pdf():
     converter = MaudConverter(
-        input_path=Path("tests/data/wind_turbine.pdf"),
+        input_path=Path("tests/data/wiring_bonding.pdf"),
         output_dir=Path("tests/data/output"),
     )
     converter.convert()

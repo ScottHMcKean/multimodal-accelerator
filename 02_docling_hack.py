@@ -1,38 +1,3 @@
-docling_format_options = {
-    InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipe_options),
-    InputFormat.DOCX: WordFormatOption(pipeline_cls=SimplePipeline),
-}
-
-# COMMAND ----------
-
-import logging
-from pathlib import Path
-from typing import Any, Iterable
-
-from docling_core.types.doc import (
-    DoclingDocument,
-    NodeItem,
-    PictureClassificationClass,
-    PictureClassificationData,
-    PictureItem,
-    PageItem,
-    TableItem,
-    PictureItem,
-)
-
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.models.base_model import BaseEnrichmentModel
-from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
-
-# COMMAND ----------
-
-PageItem.model_dump()
-
-# COMMAND ----------
-
-
 class VLMEnrichmentPipelineOptions(PdfPipelineOptions):
     get_descriptions: bool = True
     classify_diagrams: bool = False

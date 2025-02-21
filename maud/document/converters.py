@@ -1,5 +1,6 @@
 import hashlib
 import json
+from openai import OpenAI
 from pathlib import Path
 from docling.document_converter import DocumentConverter
 from docling.datamodel.document import DoclingDocument
@@ -7,6 +8,7 @@ from docling_core.types.doc import ImageRefMode, PageItem
 import logging
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from maud.document.metadata import MetaDataType, DescriptionData
+from maud.document.extensions import get_open_ai_image_description
 from typing import Dict
 
 
@@ -22,19 +24,43 @@ class PageMetadataModel:
     A model that can be used to describe a page and extract hierarchy
     """
 
-    def __init__(self, enabled: bool = True):
+    def __init__(
+        self,
+        llm_client: OpenAI = None,
+        llm_model: str = "gpt-4o-mini",
+        enabled: bool = True,
+    ):
         self.enabled = enabled
+        self.llm_client = llm_client
+        self.llm_model = llm_model
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def analyze_pages(self, page_batch: Dict[int, PageItem]) -> Dict[int, MetaDataType]:
         if not self.enabled:
             return {}
 
+        if not self.llm_client:
+            self.logger.error("LLM client is required for page description")
+            return {}
+
         page_metadata = {}
         for idx, page in page_batch.items():
             assert isinstance(page, PageItem)
+
+            try:
+                description = get_open_ai_image_description(
+                    client=self.llm_client,
+                    model=self.llm_model,
+                    image=page.image.pil_image,
+                    image_type="page",
+                    max_tokens=200,
+                )
+            except:
+                description = ""
+
             page_metadata[idx] = DescriptionData(
-                provenance="a llm model",
-                text="This is a dummy description",
+                provenance=self.llm_model,
+                text=description,
             )
 
         if not page_metadata:
@@ -44,13 +70,23 @@ class PageMetadataModel:
 
 
 class MaudConverter(DocumentConverter):
-    def __init__(self, input_path: Path, output_dir: Path, overwrite=False, **kwargs):
+    def __init__(
+        self,
+        input_path: Path,
+        output_dir: Path,
+        llm_client: OpenAI = None,
+        llm_model: str = "gpt-4o-mini",
+        overwrite: bool = False,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.doc_file_name = "doc.json"
         self.md_file_name = "doc.md"
         self.input_path = input_path
         self.output_dir = output_dir
         self.overwrite = overwrite
+        self.llm_client = llm_client
+        self.llm_model = llm_model
         self._hash_input()
         self._get_output_path()
         self.result = None
@@ -98,7 +134,10 @@ class MaudConverter(DocumentConverter):
 
         self.result.document = ExtendedDocument(
             **self.result.document.model_dump(),
-            page_metadata=PageMetadataModel().analyze_pages(self.result.document.pages),
+            page_metadata=PageMetadataModel(
+                llm_client=self.llm_client,
+                llm_model=self.llm_model,
+            ).analyze_pages(self.result.document.pages),
         )
 
         self.document = self.result.document
