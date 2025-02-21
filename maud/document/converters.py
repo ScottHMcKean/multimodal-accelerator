@@ -1,15 +1,33 @@
 import hashlib
 import json
-from openai import OpenAI
 from pathlib import Path
+from typing import Dict
+import logging
+
+from pydantic import ConfigDict
+from openai import OpenAI
 from docling.document_converter import DocumentConverter
 from docling.datamodel.document import DoclingDocument
 from docling_core.types.doc import ImageRefMode, PageItem
-import logging
+from docling_core.types.doc.document import PictureDescriptionData
 from docling.datamodel.pipeline_options import PdfPipelineOptions
-from maud.document.metadata import MetaDataType, DescriptionData
-from maud.document.extensions import get_open_ai_image_description
-from typing import Dict
+from docling_core.types.doc import Size
+from docling_core.types.doc.document import PageItem, ImageRef, DoclingDocument
+from typing import Optional, Dict, Any
+from typing import Any, Iterable
+
+from docling_core.types.doc import DoclingDocument, NodeItem, PictureItem, TableItem
+from docling_core.types.doc.document import (
+    PictureDescriptionData,
+    PictureClassificationData,
+    PictureClassificationClass,
+)
+from docling.models.base_model import BaseEnrichmentModel
+from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
+from docling_core.types.doc.document import DocItemLabel
+
+from maud.document.extensions import get_openai_description
+from maud.document.metadata import MetaDataType
 
 
 class ExtendedDocument(DoclingDocument):
@@ -48,7 +66,7 @@ class PageMetadataModel:
             assert isinstance(page, PageItem)
 
             try:
-                description = get_open_ai_image_description(
+                description = get_openai_description(
                     client=self.llm_client,
                     model=self.llm_model,
                     image=page.image.pil_image,
@@ -58,13 +76,15 @@ class PageMetadataModel:
             except:
                 description = ""
 
-            page_metadata[idx] = DescriptionData(
+            page_metadata[idx] = PictureDescriptionData(
                 provenance=self.llm_model,
                 text=description,
             )
 
         if not page_metadata:
-            return {0: DescriptionData(provenance="", text="No pages in document")}
+            return {
+                0: PictureDescriptionData(provenance="", text="No pages in document")
+            }
 
         return page_metadata
 
@@ -166,7 +186,10 @@ class MaudConverter(DocumentConverter):
 
 class MAUDPipelineOptions(PdfPipelineOptions):
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     images_scale: float = 2.0
+
     # pages
     generate_page_images: bool = True
     describe_pages: bool = True
@@ -181,3 +204,176 @@ class MAUDPipelineOptions(PdfPipelineOptions):
     generate_table_images: bool = True
     describe_tables: bool = True
     classify_tables: bool = True
+
+    # llm
+    llm_client: OpenAI = None
+    llm_model: str = "gpt-4o-mini"
+    max_tokens: int = 200
+
+    # clf
+    clf_client: OpenAI = None
+    clf_model: str = "yolo_v8"
+
+
+class ExtendedPageItem(PageItem):
+    """Extended PageItem with additional metadata."""
+
+    def __init__(
+        self,
+        page_no: int,
+        size: Size,
+        image: Optional[ImageRef] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(page_no=page_no, size=size, image=image)
+        self.metadata = metadata or {}
+
+    def add_metadata(self, key: str, value: Any) -> None:
+        """Add metadata to the page."""
+        self.metadata[key] = value
+
+    def get_metadata(self, key: str) -> Any:
+        """Get metadata from the page."""
+        return self.metadata.get(key)
+
+
+class PageMetadata:
+    """Companion class to store additional page metadata."""
+
+    def __init__(self, page: PageItem):
+        self.page = page
+        self.metadata: Dict[str, Any] = {}
+
+    def add_metadata(self, key: str, value: Any) -> None:
+        """Add metadata to the page."""
+        self.metadata[key] = value
+
+    def get_metadata(self, key: str) -> Any:
+        """Get metadata from the page."""
+        return self.metadata.get(key)
+
+
+class PictureDescriptionModel(BaseEnrichmentModel):
+    def __init__(self, pipeline_options: MAUDPipelineOptions):
+        self.enabled = pipeline_options.describe_pictures
+        self.llm_client = pipeline_options.llm_client
+        self.llm_model = pipeline_options.llm_model
+        self.max_tokens = pipeline_options.max_tokens
+
+    def is_processable(self, doc: DoclingDocument, element: NodeItem) -> bool:
+        return self.enabled and isinstance(element, PictureItem) and self.llm_client
+
+    def __call__(
+        self, doc: DoclingDocument, element_batch: Iterable[NodeItem]
+    ) -> Iterable[Any]:
+        if not self.enabled:
+            return
+
+        for element in element_batch:
+            assert isinstance(element, PictureItem)
+
+            try:
+                description = get_openai_description(
+                    client=self.llm_client,
+                    model=self.llm_model,
+                    image=element.image.pil_image,
+                    image_type="picture",
+                    max_tokens=200,
+                )
+            except:
+                description = ""
+
+            element.annotations.append(
+                PictureDescriptionData(
+                    provenance=self.llm_model,
+                    text=description,
+                )
+            )
+
+            yield element
+
+
+class PictureClassifierModel(BaseEnrichmentModel):
+    def __init__(self, pipeline_options: MAUDPipelineOptions):
+        self.enabled = pipeline_options.classify_pictures
+        self.clf_client = pipeline_options.clf_client
+        self.clf_model = pipeline_options.clf_model
+
+    def is_processable(self, doc: DoclingDocument, element: NodeItem) -> bool:
+        return self.enabled and isinstance(element, PictureItem) and self.clf_client
+
+    def __call__(
+        self, doc: DoclingDocument, element_batch: Iterable[NodeItem]
+    ) -> Iterable[Any]:
+        if not self.enabled:
+            return
+
+        for element in element_batch:
+            assert isinstance(element, PictureItem)
+
+            element.annotations.append(
+                PictureClassificationData(
+                    provenance="example_classifier-0.0.1",
+                    predicted_classes=[
+                        PictureClassificationClass(class_name="dummy", confidence=0.42)
+                    ],
+                )
+            )
+
+            yield element
+
+
+class TableDescriptionModel(BaseEnrichmentModel):
+    def __init__(self, pipeline_options: MAUDPipelineOptions):
+        self.enabled = pipeline_options.describe_tables
+        self.llm_client = pipeline_options.llm_client
+        self.llm_model = pipeline_options.llm_model
+        self.max_tokens = pipeline_options.max_tokens
+
+    def is_processable(self, doc: DoclingDocument, element: NodeItem) -> bool:
+        return self.enabled and isinstance(element, TableItem) and self.llm_client
+
+    def __call__(
+        self, doc: DoclingDocument, element_batch: Iterable[NodeItem]
+    ) -> Iterable[Any]:
+        if not self.enabled:
+            return
+
+        for element in element_batch:
+            assert isinstance(element, TableItem)
+
+            try:
+                description = get_openai_description(
+                    client=self.llm_client,
+                    model=self.llm_model,
+                    image=element.image.pil_image,
+                    image_type="table",
+                    max_tokens=200,
+                )
+            except:
+                description = ""
+
+            caption = doc.add_text(
+                label=DocItemLabel.CAPTION,
+                text=description,
+            )
+
+            element.captions.append(caption.get_ref())
+
+            yield element
+
+
+class MAUDPipeline(StandardPdfPipeline):
+    def __init__(self, pipeline_options: MAUDPipelineOptions):
+        super().__init__(pipeline_options)
+        self.pipeline_options: pipeline_options
+
+        self.enrichment_pipe = [
+            PictureClassifierModel(self.pipeline_options),
+            PictureDescriptionModel(self.pipeline_options),
+            TableDescriptionModel(self.pipeline_options),
+        ]
+
+    @classmethod
+    def get_default_options(cls) -> MAUDPipelineOptions:
+        return MAUDPipelineOptions()

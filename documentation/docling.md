@@ -7,15 +7,13 @@ The build process does the conversion using the OCR engine.
 
 ## Enrichment
 
-The enrichment process loops through elements in the document (after conversion) and adds additional metadata. The best built out enrichment pipeline right now is for figures (or Pictures in Docling terms).
+The enrichment process loops through elements in the document (after the build process) and adds additional metadata. Internally, docling has an enrichment pipeline build for pictures, but MAUD extends this to tables and pages. This results in three distinct pipelines - page, table, and picture descriptions. 
 
-## Custom Annotations
+### Pages
+We had to extend the document class to include a `page_metadata` object. Once the document build has completed we add the page metadata using an LLM description. The intent is to extend this to entity recognition in the future to build up knowledge graphs. We use the PictureData class for pages, since it is built into the library. 
 
-We use the annotations field in the PictureItem and TableItem classes to store custom annotations. For figures, we use the PictureDescriptionData and PictureClassificationData classes. For tables, we use the TableDescriptionData and TableClassificationData classes.
-
-This permits the incorporation of two distinct custom pipelines for tables, figures, and pages: a classification pipeline and a description pipeline.
-
-The output of the model looks a bit like this:
+### Pictures
+We use the annotations field in the PictureItem class that leverages the PictureDescriptionData and PictureClassificationData classes. The output of the custom annotations looks like this:
 
 ```
 'annotations': [
@@ -31,6 +29,10 @@ The output of the model looks a bit like this:
     }
 ]
 ```
+
+### Tables
+We use the captions field in the TableItem class to store descriptions. First we create a text reference item, then reference that via the caption list which is expecting a reference item and not plain text.
+
 
 ## Limitations
 

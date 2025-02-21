@@ -11,7 +11,7 @@ def encode_pil_image_to_base64(pil_image):
     return base64.b64encode(buffered.read()).decode("utf-8")
 
 
-def get_open_ai_image_description(
+def get_openai_description(
     client: OpenAI,
     model: str,
     image: Image.Image,

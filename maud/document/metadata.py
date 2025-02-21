@@ -1,4 +1,4 @@
-from .extensions import get_open_ai_image_description
+from .extensions import get_openai_description
 from pathlib import Path
 from pyspark.sql.types import (
     StructType,
@@ -11,10 +11,8 @@ from typing import List, Literal, Annotated, Union, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 
-
-class ClassificationClass(BaseModel):
-    class_name: str
-    confidence: float
+from docling_core.types.doc import PictureClassificationData
+from docling_core.types.doc.document import PictureDescriptionData
 
 
 class RelationshipData(BaseModel):
@@ -46,26 +44,10 @@ class ConnectionData(BaseModel):
     object: NodeData
 
 
-class DescriptionData(BaseModel):
-    """Description"""
-
-    kind: Literal["description"] = "description"
-    text: str
-    provenance: str
-
-
-class ClassificationData(BaseModel):
-    """Classification"""
-
-    kind: Literal["classification"] = "classification"
-    provenance: str
-    predicted_classes: List[ClassificationClass]
-
-
 MetaDataType = Annotated[
     Union[
-        ClassificationData,
-        DescriptionData,
+        PictureClassificationData,
+        PictureDescriptionData,
         NodeData,
         RelationshipData,
         ConnectionData,
@@ -89,7 +71,7 @@ def capture_page_metadata(page, page_dir, doc_name, llm_client):
     page_image_path = page_dir / f"{page.page_no}.webp"
 
     try:
-        description = get_open_ai_image_description(
+        description = get_openai_description(
             llm_client, page.image.pil_image, image_type="page", max_tokens=200
         )
     except:
@@ -120,7 +102,7 @@ def capture_table_metadata(table, table_dir, doc_name, llm_client):
     table_image_path = table_dir / f"{table.prov[0].page_no}.webp"
 
     try:
-        description = get_open_ai_image_description(
+        description = get_openai_description(
             llm_client, table.image.pil_image, image_type="table", max_tokens=200
         )
     except:
@@ -160,7 +142,7 @@ def capture_picture_metadata(picture, pic_dir, doc_name, llm_client):
     pic_image_path = pic_dir / f"{picture.prov[0].page_no}.webp"
 
     try:
-        description = get_open_ai_image_description(
+        description = get_openai_description(
             llm_client, picture.image.pil_image, image_type="picture", max_tokens=200
         )
     except:
