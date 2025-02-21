@@ -97,7 +97,8 @@ class DoclingConverterAdapter(AbstractConverter):
 
         if self._validate_output_exists():
             self.logger.info("Conversion exists, reloading")
-            self.result = self.load_result()
+            # self.result = self.load_result()
+            self.result = self.load_document()
             return self.result
 
         self.result = self.converter.convert(self.input_path)

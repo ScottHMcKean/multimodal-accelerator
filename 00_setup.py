@@ -15,7 +15,8 @@ sys.path.append('./maud')
 # COMMAND ----------
 
 # UNITY CATALOG
-CATALOG = 'shm'
+# CATALOG = 'shm'
+CATALOG = 'kyra_wulffert'
 SCHEMA = 'multimodal'
 
 USERNAME = dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()

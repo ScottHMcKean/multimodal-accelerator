@@ -29,6 +29,12 @@ def capture_page_metadata(page, page_dir, doc_name, llm_client):
         )
     except:
         description = ""
+    
+    table_bbox = None
+    if hasattr(page, "tables") and page.tables:
+        table = page.tables[0]  # Selecting the first detected table
+        if hasattr(table, "prov") and table.prov:
+            table_bbox = dict(table.prov[0].bbox)
 
     page_entry = {
         "doc_name": doc_name,
@@ -37,7 +43,7 @@ def capture_page_metadata(page, page_dir, doc_name, llm_client):
         "parent": "",
         "page_no": page.page_no,
         "size": dict(page.size),
-        "bbox": clean_bbox(dict(table.prov[0].bbox)),
+        "bbox": clean_bbox(dict(table.prov[0].bbox)) if table_bbox else None,
         "caption_ref": "",
         "caption_index": "",
         "img_path": str(page_image_path),
@@ -225,7 +231,7 @@ meta_schema = StructType(
                     StructField("height", DoubleType(), True),
                 ]
             ),
-            True,
+            True
         ),
         StructField(
             "bbox",
@@ -237,7 +243,33 @@ meta_schema = StructType(
                     StructField("b", DoubleType(), True),
                 ]
             ),
-            True,
+            True
+        ),
+        StructField("caption_ref", StringType(), True),
+        StructField("caption_index", IntegerType(), True),
+        StructField("img_path", StringType(), True),
+        StructField("description", StringType(), True),
+    ]
+)
+
+table_meta_schema = StructType(
+    [
+        StructField("doc_name", StringType(), False),
+        StructField("doc_ref", StringType(), False),
+        StructField("type", StringType(), True),
+        StructField("parent", StringType(), True),
+        StructField("page_no", IntegerType(), True),
+        StructField(
+            "bbox",
+            StructType(
+                [
+                    StructField("l", DoubleType(), True),
+                    StructField("t", DoubleType(), True),
+                    StructField("r", DoubleType(), True),
+                    StructField("b", DoubleType(), True),
+                ]
+            ),
+            True
         ),
         StructField("caption_ref", StringType(), True),
         StructField("caption_index", IntegerType(), True),
