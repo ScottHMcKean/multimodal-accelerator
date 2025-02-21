@@ -90,17 +90,14 @@ from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
 
 # COMMAND ----------
 
-PageItem.model_dump()
+# PageItem.model_dump()
 
 # COMMAND ----------
 
+class ExamplePictureClassifierPipelineOptions(PdfPipelineOptions):
+    do_picture_classifer: bool = True
 
-class VLMEnrichmentPipelineOptions(PdfPipelineOptions):
-    get_descriptions: bool = True
-    classify_diagrams: bool = False
-
-
-class VLMEnrichmentModel(BaseEnrichmentModel):
+class ExamplePictureClassifierEnrichmentModel(BaseEnrichmentModel):
     def __init__(self, enabled: bool):
         self.enabled = enabled
 
@@ -117,7 +114,7 @@ class VLMEnrichmentModel(BaseEnrichmentModel):
             assert isinstance(element, PictureItem)
 
             # uncomment this to interactively visualize the image
-            element.get_image(doc).show()
+            # element.get_image(doc).show()
 
             element.annotations.append(
                 PictureClassificationData(
@@ -129,7 +126,6 @@ class VLMEnrichmentModel(BaseEnrichmentModel):
             )
 
             yield element
-
 
 class ExamplePictureClassifierPipeline(StandardPdfPipeline):
     def __init__(self, pipeline_options: ExamplePictureClassifierPipelineOptions):
@@ -146,10 +142,9 @@ class ExamplePictureClassifierPipeline(StandardPdfPipeline):
     def get_default_options(cls) -> ExamplePictureClassifierPipelineOptions:
         return ExamplePictureClassifierPipelineOptions()
 
-
 # COMMAND ----------
 
-filename = "92ab18cd-55d7-5c30-a347-2369dd751f74.pdf"
+filename = "01-0571-0011_Rev06_07-07.pdf"
 input_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/{filename}")
 
 # COMMAND ----------
@@ -178,11 +173,11 @@ for element, _level in result.document.iterate_items():
 
 # COMMAND ----------
 
-result
+# result
 
 # COMMAND ----------
 
-pdf_pipe_options
+# pdf_pipe_options
 
 # COMMAND ----------
 
@@ -200,12 +195,13 @@ pdf_pipe_options
 from openai import OpenAI
 from pathlib import Path
 import time
-from maud.meta_parsers import (
-    save_page_metadata,
-    save_table_metadata,
-    save_picture_metadata,
+# from maud.meta_parsers import (
+from maud.document.metadata import (
+    save_page_metadata as save_page_metadata,
+    save_table_metadata as save_table_metadata,
+    save_picture_metadata as save_picture_metadata,
 )
-from maud.converters import DoclingConverterAdapter
+from maud.document.converters import DoclingConverterAdapter
 
 client = OpenAI(api_key=dbutils.secrets.get("shm", "gpt4o"))
 
@@ -232,7 +228,8 @@ converter = DoclingConverterAdapter(
 
 # convert document
 document = converter.convert()
-converter.save_result()
+# converter.save_result()
+converter.save_document()
 
 # COMMAND ----------
 
@@ -241,7 +238,13 @@ doc_dict.keys()
 
 # COMMAND ----------
 
-document.model_extra()
+# document.model_extra()
+
+# COMMAND ----------
+
+files = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}").glob("*")
+types = [".xlsx", ".docx", ".pptx", ".pdf"]
+[file.name for file in files if file.suffix in types]
 
 # COMMAND ----------
 
@@ -263,10 +266,20 @@ for filename in filenames:
         format_options=docling_format_options,
     )
 
-    # convert document
-    document = converter.convert()
+    print(f"Processing file: {filename}, Type: {input_path.suffix}")
 
-    converter.save_result()
+    # Debug before calling convert
+    try:
+        document = converter.convert()
+    except AssertionError as e:
+        print(f"AssertionError encountered for file: {filename}")
+        raise
+
+    # convert document
+    # document = converter.convert()
+
+    # converter.save_result()
+    converter.save_document()
 
     # get descriptions for pages, tables, and figures
     page_metadata = save_page_metadata(
@@ -343,13 +356,17 @@ page_meta_df
 
 # COMMAND ----------
 
-from maud.meta_parsers import page_meta_schema, table_meta_schema
+page_meta_df["caption_index"] = page_meta_df["caption_index"].replace("", None).astype("Int64")
 
-page_meta = spark.createDataFrame(page_meta_df, page_meta_schema)
+# COMMAND ----------
+
+from maud.document.metadata import meta_schema
+
+page_meta = spark.createDataFrame(page_meta_df, meta_schema)
 (
     page_meta.write.mode("overwrite")
     .option("mergeSchema", "true")
-    .saveAsTable("shm.multimodal.page_metadata")
+    .saveAsTable(f"{CATALOG}.{SCHEMA}.page_metadata")
 )
 display(page_meta)
 
@@ -370,11 +387,13 @@ table_meta_df
 
 # COMMAND ----------
 
+from maud.document.metadata import table_meta_schema
+
 table_meta = spark.createDataFrame(table_meta_df, table_meta_schema)
 (
     table_meta.write.mode("overwrite")
     .option("mergeSchema", "true")
-    .saveAsTable("shm.multimodal.table_metadata")
+    .saveAsTable(f"{CATALOG}.{SCHEMA}.table_metadata")
 )
 display(table_meta)
 
@@ -399,7 +418,7 @@ if pic_meta_combined is not None:
     (
         pic_meta.write.mode("overwrite")
         .option("mergeSchema", "true")
-        .saveAsTable("shm.multimodal.picture_metadata")
+        .saveAsTable(f"{CATALOG}.{SCHEMA}.picture_metadata")
     )
     display(pic_meta)
 
@@ -414,7 +433,7 @@ if pic_meta_combined is not None:
 # COMMAND ----------
 
 from docling.chunking import HybridChunker, HierarchicalChunker
-from maud.chunkers import process_chunk
+from maud.document.chunkers import process_chunk
 
 chunker = HybridChunker(tokenizer="sentence-transformers/all-MiniLM-L6-v2")
 
@@ -440,7 +459,7 @@ for key, result in iter_results.items():
 from maud.document.chunkers import chunk_schema
 
 chunk_df = spark.createDataFrame(combined_processed_chunks, schema=chunk_schema)
-(chunk_df.write.mode("overwrite").saveAsTable("shm.multimodal.processed_chunks"))
+(chunk_df.write.mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.processed_chunks"))
 display(chunk_df)
 
 # COMMAND ----------

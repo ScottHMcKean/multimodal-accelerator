@@ -21,34 +21,34 @@ import pyspark.sql.functions as F
 # COMMAND ----------
 
 page_meta = (
-    spark.table("shm.multimodal.page_metadata")
+    spark.table(f"{CATALOG}.{SCHEMA}.page_metadata")
     .withColumnRenamed("description", "text")
     .withColumn("filename", F.concat(F.col("doc_name"), F.lit(".pdf")))
     .withColumn("pages", F.array(F.col("page_no")))
-    .withColumn("ref", F.array(F.col("ref")))
+    .withColumn("ref", F.array(F.col("doc_ref")))
     .select("filename", "pages", "text", "type", "ref", "img_path")
 )
 
 pic_meta = (
-    spark.table("shm.multimodal.picture_metadata")
+    spark.table(f"{CATALOG}.{SCHEMA}.picture_metadata")
     .withColumnRenamed("description", "text")
     .withColumn("filename", F.concat(F.col("doc_name"), F.lit(".pdf")))
     .withColumn("pages", F.array(F.col("page_no")))
-    .withColumn("ref", F.array(F.col("ref")))
+    .withColumn("ref", F.array(F.col("doc_ref")))
     .select("filename", "pages", "text", "type", "ref", "img_path")
 )
 
 table_meta = (
-    spark.table("shm.multimodal.table_metadata")
+    spark.table(f"{CATALOG}.{SCHEMA}.table_metadata")
     .withColumnRenamed("description", "text")
     .withColumn("filename", F.concat(F.col("doc_name"), F.lit(".pdf")))
     .withColumn("pages", F.array(F.col("page_no")))
-    .withColumn("ref", F.array(F.col("ref")))
+    .withColumn("ref", F.array(F.col("doc_ref")))
     .select("filename", "pages", "text", "type", "ref", "img_path")
 )
 
 chunks = (
-    spark.table("shm.multimodal.processed_chunks")
+    spark.table(f"{CATALOG}.{SCHEMA}.processed_chunks")
     .withColumn("type", F.lit("text"))
     .withColumn("ref", F.array(F.lit("tbd")))
     .withColumn("img_path", F.lit(""))
@@ -67,13 +67,13 @@ combined = (
 (
     combined.write.mode("overwrite")
     .options(mergeSchema=True)
-    .saveAsTable("shm.multimodal.combined_chunks")
+    .saveAsTable(f"{CATALOG}.{SCHEMA}.combined_chunks")
 )
 display(combined)
 
 # COMMAND ----------
 
-display(spark.table('shm.multimodal.combined_chunks'))
+display(spark.table(f"{CATALOG}.{SCHEMA}.combined_chunks"))
 
 # COMMAND ----------
 
@@ -93,8 +93,10 @@ from mlflow.models import ModelConfig
 from databricks.vector_search.client import VectorSearchClient
 from agent.retrievers import index_exists
 
-config = ModelConfig(development_config="maud/config/agent_config.yaml")
-vs_config = config.get("vector_search")
+# config = ModelConfig(development_config="maud/config/agent_config.yaml")
+config = ModelConfig(development_config="implementations/agents/langgraph/config.yaml")
+
+vs_config = config.get("retriever")
 vs_endpoint = vs_config.get("endpoint_name")
 vs_index_name = vs_config.get("index_name")
 vs_source_table = vs_config.get("combined_chunks_table")
