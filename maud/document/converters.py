@@ -145,12 +145,13 @@ class MaudConverter(DocumentConverter):
         if not (self._output_path / self.doc_file_name).exists():
             return False
 
+        self.logger.info("Found existing conversion")
+
         return True
 
     def convert(self, *args, **kwargs):
         if self._validate_output_exists():
-            self.logger.info("Found existing conversion")
-            self.document = self.load_document()
+            self.load_document()
             return self.document
 
         self.logger.info("Converting document")

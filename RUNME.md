@@ -4,6 +4,14 @@ This document guides you through running the solution accelerator.
 
 We use poetry to manage dependencies and virtual environments. We also use it to manage the testing framework and run coverage reports automatically. See pyproject.toml for more details.
 
+# Where the implementations are
+
+Config + location
+What to change for your thingy.
+
+# 
+
+
 ## Development Setup with Poetry
 
 ### Quick Start

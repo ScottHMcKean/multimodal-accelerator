@@ -51,7 +51,7 @@ def test_convert_xlsx():
     assert converter.document is not None
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def output_dir():
     """Create output directory and clean it up after tests."""
     path = Path("tests/data/output")
