@@ -59,10 +59,6 @@ class PageMetadataModel:
         if not self.enabled:
             return {}
 
-        if not self.llm_client:
-            self.logger.error("LLM client is required for page description")
-            return {}
-
         page_metadata = {}
         for idx, page in page_batch.items():
             assert isinstance(page, PageItem)
@@ -91,7 +87,7 @@ class PageMetadataModel:
         return page_metadata
 
 
-class MaudConverter(DocumentConverter):
+class MAUDConverter(DocumentConverter):
     def __init__(
         self,
         input_path: Path,
@@ -125,6 +121,8 @@ class MaudConverter(DocumentConverter):
             )
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
+
+        self.saved_file_locations = {"pages": {}, "pictures": {}, "tables": {}}
 
     def _hash_input(self):
         self._input_hash = self._generate_input_hash(self.input_path)
@@ -191,8 +189,44 @@ class MaudConverter(DocumentConverter):
             self._output_path / self.doc_file_name, image_mode=ImageRefMode.EMBEDDED
         )
 
+        self.save_images()
+
+    def save_images(self):
+        page_dir = self._output_path / "pages"
+        page_dir.mkdir(exist_ok=True, parents=True)
+        for _, page in list(self.document.pages.items()):
+            if page.image is not None:
+                page_image_path = page_dir / f"{page.page_no}.webp"
+                with page_image_path.open("wb") as fp:
+                    page.image.pil_image.save(fp, format="webp", quality=100)
+                self.saved_file_locations["pages"][page.page_no] = str(page_image_path)
+
+        pic_dir = self._output_path / "pictures"
+        pic_dir.mkdir(exist_ok=True, parents=True)
+        for picture in list(self.document.pictures):
+            if picture.image is not None:
+                pic_ref = picture.self_ref.split("/")[-1]
+                pic_image_path = pic_dir / f"{pic_ref}.webp"
+                with pic_image_path.open("wb") as fp:
+                    picture.image.pil_image.save(fp, format="webp", quality=100)
+                self.saved_file_locations["pictures"][pic_ref] = str(pic_image_path)
+
+        table_dir = self._output_path / "tables"
+        table_dir.mkdir(exist_ok=True, parents=True)
+        for table in list(self.document.tables):
+            if table.image is not None:
+                table_ref = table.self_ref.split("/")[-1]
+                table_image_path = table_dir / f"{table_ref}.webp"
+                with table_image_path.open("wb") as fp:
+                    table.image.pil_image.save(fp, format="webp", quality=100)
+                self.saved_file_locations["tables"][table_ref] = str(table_image_path)
+
     def chunk(self):
-        return chunk_maud_document(self.document, max_tokens=self.max_tokens)
+        return chunk_maud_document(
+            self.document,
+            max_tokens=self.max_tokens,
+            image_locations=self.saved_file_locations,
+        )
 
 
 class MAUDPipelineOptions(PdfPipelineOptions):

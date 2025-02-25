@@ -29,7 +29,7 @@ from docling_core.types.doc.labels import DocItemLabel
 from docling.chunking import HybridChunker
 
 
-def make_table_chunks(document):
+def make_table_chunks(document, image_locations={}):
     input_hash = document.input_hash
     table_chunks = []
     for table in document.tables:
@@ -42,6 +42,9 @@ def make_table_chunks(document):
         tables = [table.self_ref.split("/")[-1]]
         pictures = []
         content_text = table.export_to_markdown()
+
+        table_image_path = image_locations.get(table.self_ref.split("/")[-1], "")
+
         table_chunks.append(
             {
                 "filename": document.origin.filename,
@@ -55,6 +58,7 @@ def make_table_chunks(document):
                 "headings": headings,
                 "captions": captions,
                 "chunk_type": "table",
+                "image_path": table_image_path,
                 "text": content_text,
                 "enriched_text": f"""
                 Captions:{", ".join(captions) if captions else ""}\n
@@ -66,7 +70,7 @@ def make_table_chunks(document):
     return table_chunks
 
 
-def make_picture_chunks(document):
+def make_picture_chunks(document, image_locations={}):
     input_hash = document.input_hash
     picture_chunks = []
     for pic in document.pictures:
@@ -79,6 +83,9 @@ def make_picture_chunks(document):
         tables = []
         pictures = [pic.self_ref.split("/")[-1]]
         text = ", ".join([x.text for x in pic.annotations if x.kind == "description"])
+
+        picture_image_path = image_locations.get(pic.self_ref.split("/")[-1], "")
+
         picture_chunks.append(
             {
                 "filename": document.origin.filename,
@@ -93,6 +100,7 @@ def make_picture_chunks(document):
                 "captions": captions,
                 "chunk_type": "picture",
                 "text": text,
+                "image_path": picture_image_path,
                 "enriched_text": f"""
                 Captions:{", ".join(captions) if captions else ""}\n
                 Text:{text}
@@ -103,7 +111,7 @@ def make_picture_chunks(document):
     return picture_chunks
 
 
-def make_page_chunks(document):
+def make_page_chunks(document, image_locations={}):
     page_chunks = []
 
     for k, v in document.page_metadata.items():
@@ -136,6 +144,8 @@ def make_page_chunks(document):
             )
         )
 
+        page_image_path = image_locations.get(k, "")
+
         page_chunk_dict = {
             "filename": document.origin.filename,
             "input_hash": document.input_hash,
@@ -149,6 +159,7 @@ def make_page_chunks(document):
             "captions": captions,
             "chunk_type": "page",
             "text": v.text,
+            "image_path": page_image_path,
             "enriched_text": f"""Headings:{", ".join(headings) if headings else ""}\nPage Description:{v.text}""",
         }
         page_chunks.append(page_chunk_dict)
@@ -187,6 +198,7 @@ def make_text_chunk(document, chunk):
         "headings": headings,
         "captions": captions,
         "chunk_type": "text",
+        "image_path": "",
         "text": chunk.text,
         "enriched_text": f"""
             Headings:{", ".join(headings) if headings else ""}\n
@@ -203,9 +215,15 @@ def make_text_chunks(document, max_tokens=1000):
     return chunk_dicts
 
 
-def chunk_maud_document(document, max_tokens=1000):
+def chunk_maud_document(document, max_tokens=1000, image_locations={}):
     text_chunks = make_text_chunks(document, max_tokens=max_tokens)
-    pic_chunks = make_picture_chunks(document)
-    table_chunks = make_table_chunks(document)
-    page_chunks = make_page_chunks(document)
+    pic_chunks = make_picture_chunks(
+        document, image_locations=image_locations.get("pictures", {})
+    )
+    table_chunks = make_table_chunks(
+        document, image_locations=image_locations.get("tables", {})
+    )
+    page_chunks = make_page_chunks(
+        document, image_locations=image_locations.get("pages", {})
+    )
     return text_chunks + pic_chunks + table_chunks + page_chunks

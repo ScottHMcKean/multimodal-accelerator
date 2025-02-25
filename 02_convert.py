@@ -50,7 +50,7 @@ llm_client.chat.completions.create(
 # MAGIC ### Setup Docling Converter
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
-from maud.document.converters import MAUDPipelineOptions, MaudConverter, MAUDPipeline
+from maud.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
 
 maud_pipeline_options = MAUDPipelineOptions(
     llm_client=llm_client,
@@ -77,7 +77,7 @@ for filename in filenames:
     input_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/{filename}")
     output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{SILVER_PATH}")
 
-    converter = MaudConverter(
+    converter = MAUDConverter(
         input_path=input_path,
         output_dir=output_dir,
         llm_client=maud_pipeline_options.llm_client,
