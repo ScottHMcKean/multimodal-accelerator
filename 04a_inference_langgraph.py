@@ -39,6 +39,10 @@ maud_config = parse_config(mlflow_config)
 
 # COMMAND ----------
 
+maud_config
+
+# COMMAND ----------
+
 # API Interfaces
 from maud.agent.retrievers import get_vector_retriever
 from databricks_langchain import ChatDatabricks
