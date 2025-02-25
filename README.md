@@ -22,15 +22,14 @@ This architecture leverages several services from the Databricks platform: Datab
 
 ## Key Services and Costs
 
-| Service | Cost Model | Example Cost* | Latency | Reference |
-|---------|------------|---------------|----------|-----------|
-| Databricks Apps | Compute time | $0.50/DBU-hr | <100ms | [Apps Pricing](https://www.databricks.com/product/pricing) |
-| Mosaic Vector Search | Storage + Compute | $0.20/GB/month + Query costs | 10-100ms | [Docs](https://docs.databricks.com/en/generative-ai/vector-search.html) |
-| Mosaic AI Gateway | API calls | $0.01/1K tokens | 500-5000ms | [Docs](https://docs.databricks.com/en/machine-learning/ai-gateway/index.html) |
-| Delta Live Tables | Compute time | $0.50/DBU-hr | Minutes | [Docs](https://www.databricks.com/product/pricing) |
-| Mosaic AI Model Serving | Compute time | $0.31/hr | ~100ms | [Docs](https://docs.databricks.com/en/machine-learning/model-serving/index.html) |
+| Service | Example Cost* | Latency | Reference |
+|---------|------------|---------------|----------|
+| Databricks Apps |  $180/month | <100ms | [Apps Pricing](https://www.databricks.com/product/pricing) |
+| Mosaic Vector Search  | $250/month | 10-100ms | [Docs](https://docs.databricks.com/en/generative-ai/vector-search.html) |
+| Mosaic AI Gateway  | $1.00/1M tokens | 500-5000ms | [Docs](https://docs.databricks.com/en/machine-learning/ai-gateway/index.html) |
+| Mosaic AI Model Serving  | $250/month | ~100ms | [Docs](https://docs.databricks.com/en/machine-learning/model-serving/index.html) |
 
-\* Example costs are approximate and will vary based on usage, region, and specific implementation details. DBU = Databricks Unit.
+\* Example costs are illustrative estimates only and will vary based on usage, region, and implementation details. DBU = Databricks Unit.
 
 ## Table of Contents
 
