@@ -14,29 +14,27 @@ sys.path.append('./maud')
 
 # COMMAND ----------
 
-# UNITY CATALOG
 CATALOG = 'shm'
 SCHEMA = 'multimodal'
-
-USERNAME = dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
-
-ROOT_PATH = "/".join(dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get().split('/')[:-1])
-
-# DOCLING SETTINGS
-IMAGE_RESOLUTION_SCALE = 2.0
 BRONZE_PATH = 'docs_bronze'
 SILVER_PATH = 'docs_silver'
 GOLD_PATH = 'docs_gold'
 
-# CHUNK SETTINGS
-CHUNK_MAX_TOKENS = 250
+# COMMAND ----------
+
+USERNAME = dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
+
+ROOT_PATH = "/".join(dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get().split('/')[:-1])
 
 # COMMAND ----------
 
 import logging
 
 # Configure logger
-logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+  level=logging.WARNING, 
+  format='%(asctime)s - %(levelname)s - %(message)s'
+  )
 log = logging.getLogger(__name__)
 
 # COMMAND ----------

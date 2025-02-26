@@ -68,7 +68,6 @@ context_generation_node = make_context_generation_node(model, maud_config)
 
 # COMMAND ----------
 
-
 # Graph
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableLambda
@@ -77,7 +76,9 @@ from maud.agent.utils import graph_state_to_chat_type
 workflow = StateGraph(state)
 workflow.add_node("retrieve", retriever_node)
 workflow.add_node("generate_w_context", context_generation_node)
-workflow.add_edge(START, "retrieve")
+workflow.add_node("query_rewrite", rewrite_query)
+workflow.add_edge(START, "query_rewrite")
+workflow.add_edge("query_rewrite", "retrieve")
 workflow.add_edge("retrieve", "generate_w_context")
 workflow.add_edge("generate_w_context", END)
 app = workflow.compile()
@@ -104,8 +105,13 @@ with mlflow.start_run():
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Log
-# MAGIC Log the agent using mlflow
+# MAGIC ## Log The Model
+# MAGIC This is where the deployment magic happens. This may seem a little involved, but there is a lot of magic happening:
+# MAGIC
+# MAGIC - We set a retriever schema for MLFLow so that it can trace properly
+# MAGIC - We set a well defined signature so that MLFLow knows that we can use the agent evaluation framework
+# MAGIC - We provide a list of resources to allow flow through authentication
+# MAGIC - We get a list of packages that matches of development package versions 
 
 # COMMAND ----------
 
@@ -149,6 +155,17 @@ with open("requirements.txt", "r") as file:
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC With all that in place, we make our Unity Catalog enabled MLFLow logging call. This does a couple things:
+# MAGIC
+# MAGIC - Uses code as the model to avoid serialization issues
+# MAGIC - Passes in the 'maud' directory for our custom code
+# MAGIC - Registers the model in Unity Catalog
+# MAGIC - Provides an input example and signatures
+# MAGIC - Provides the pass through resources
+
+# COMMAND ----------
+
 # Log the model
 with mlflow.start_run():
     logged_agent_info = mlflow.langchain.log_model(
@@ -168,7 +185,7 @@ with mlflow.start_run():
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Test the reloaded model before deploying
+# MAGIC Let's test the reloaded model before deploying it to ensure the inference works.
 
 # COMMAND ----------
 
@@ -181,7 +198,11 @@ result = reloaded.invoke(input_example)
 
 # MAGIC %md
 # MAGIC ## Deploy
-# MAGIC Now we deploy the model
+# MAGIC Now we deploy the model using the Mosaic AI Agents Framework. This provides some nice convenience features out of the box:
+# MAGIC - A review app
+# MAGIC - Integration with playground
+# MAGIC - Inference tables & monitoring
+# MAGIC - Versioned deployments
 
 # COMMAND ----------
 

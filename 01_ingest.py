@@ -41,7 +41,6 @@ import pyspark.sql.types as T
 
 SAVE_PATH = f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}"
 
-
 @udf(T.BooleanType())
 def download_file(title, url):
     response = requests.get(url)
@@ -62,7 +61,6 @@ doc_paths = doc_paths.withColumn(
 # MAGIC We will also leverage delta tables to scale our work and leverage workers to reduce document processing time downstream.
 
 # COMMAND ----------
-
 
 @udf(T.BinaryType())
 def load_url_to_binary(url):
@@ -92,5 +90,3 @@ doc_paths = doc_paths.withColumn("bytes", load_url_to_binary(F.col("document_url
 # COMMAND ----------
 
 display(doc_paths)
-
-# COMMAND ----------

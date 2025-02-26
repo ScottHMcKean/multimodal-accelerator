@@ -20,6 +20,7 @@ chunk_schema = StructType(
         StructField("headings", ArrayType(StringType()), True),
         StructField("captions", ArrayType(StringType()), True),
         StructField("chunk_type", StringType(), True),
+        StructField("image_path", StringType(), True),
         StructField("text", StringType(), True),
         StructField("enriched_text", StringType(), True),
     ]

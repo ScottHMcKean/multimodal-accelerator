@@ -45,8 +45,6 @@ Each solution component is implemented as a Databricks notebook.
 
 5. Interface: Provide a basic user interface for interacting with the agent and gathering feedback.
 
-6. Iterate: Show how we can extend the solution to more complex engineering documents like P&ID diagrams.
-
 ## Authors
 <scott.mckean@databricks.com>
 <chris.chalcraft@databricks.com>

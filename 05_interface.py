@@ -29,7 +29,7 @@ endpoints = {
   'tools': 'agents_shm-multimodal-agent_tools'
 }
 
-serving_endpoint_name = endpoints['tools']
+serving_endpoint_name = endpoints['langgraph']
 
 API_URL = f"https://adb-984752964297111.11.azuredatabricks.net/serving-endpoints/{serving_endpoint_name}/invocations"
 API_TOKEN = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()

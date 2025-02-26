@@ -5,8 +5,6 @@
 # MAGIC This module bring everything together. We take our vector store, a foundation model, and implementation code and deploy a serving endpoint that can be used for multimodal retrieval.
 # MAGIC
 # MAGIC This subsection (04c) implements the inference flow using an OpenAI tool calling agent.
-# MAGIC
-# MAGIC This is currently a work in progress
 
 # COMMAND ----------
 
