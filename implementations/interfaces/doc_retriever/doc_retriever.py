@@ -1,13 +1,15 @@
 import logging
 import io
 from pathlib import Path
-import gradio as gr
-from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
-from maud.interface.config import load_config
-import json
-from PIL import Image
 import requests
+
+
+import streamlit as st
+from databricks.sdk import WorkspaceClient
+from PIL import Image
+
+from maud.interface.config import load_config
+from maud.interface.highlighting import highlight_stemmed_text
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,7 +18,7 @@ workspace_client = WorkspaceClient()
 workspace_url = workspace_client.config.host
 token = workspace_client.config.token
 
-app_config = load_config(str(Path(__file__).parent / "app_config.yaml"))
+config = load_config(str(Path(__file__).parent / "config.yaml"))
 
 
 def load_image(volume_path: str) -> Image.Image:
@@ -58,80 +60,73 @@ def clean_text(text: str) -> str:
     return text
 
 
-def query_llm(message, history):
-    """
-    Query the LLM with the given message and chat history.
-    """
-    logger.info(f"Message: {message}")
-    logger.info(f"History: {history}")
+def main():
+    st.title(config.title)
+    st.write(config.description)
 
-    if isinstance(message, dict):
-        message_text = message.get("text", "")
-    elif isinstance(message, str):
-        message_text = message
-    else:
-        raise NotImplementedError(f"Unsupported message type: {type(message)}")
+    # Query input
+    query = st.text_input(
+        label="Enter your query:",
+        placeholder=config.example,
+    )
 
     endpoint_url = (
-        f"{workspace_url}/serving-endpoints/{app_config.serving_endpoint}/invocations"
+        f"{workspace_url}/serving-endpoints/{config.serving_endpoint}/invocations"
     )
 
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     payload = {
         "messages": [
-            {"role": "user", "content": message_text},
+            {"role": "user", "content": query},
         ]
     }
 
-    response = requests.post(endpoint_url, headers=headers, json=payload)
+    if query:
+        with st.spinner("Processing query..."):
+            try:
+                response = requests.post(endpoint_url, headers=headers, json=payload)
+                response.raise_for_status()  # Raise an exception for bad status codes
+                result = response.json()
 
-    # Check response status and get result
-    if response.status_code == 200:
-        result = response.json()
-        logger.info(result)
-    else:
-        logger.error(f"Error: {response.status_code}")
-        logger.error(response.text)
+                st.write("### Assistant")
+                ai_response = result["choices"][0]["message"]["content"]
+                query_terms = query.lower().split()
+                st.markdown(ai_response, unsafe_allow_html=True)
 
-    gradio_messages = []
-    gradio_messages.append(
-        {
-            "text": result["choices"][0]["message"]["content"],
-        }
-    )
+                # Display retrieved documents
+                if "documents" in result["custom_outputs"]:
+                    st.write("### Retrieved Documents")
 
-    if result.get("custom_outputs").get("documents"):
-        documents = result.get("custom_outputs").get("documents")
-        for doc in documents:
-            metadata = doc.get("metadata", {})
-            content = doc.get("page_content", "")
+                    for doc in result["custom_outputs"].get("documents", []):
+                        metadata = doc.get("metadata", {})
+                        content = doc.get("page_content", "")
+                        with st.expander(f"Document {metadata.get('id', '')}"):
+                            # Display metadata
+                            st.markdown("**Metadata:**")
+                            st.json(doc.get("metadata", {}))
 
-            formatted_text = f"""
-            Source: {metadata.get('filename', 'Unknown')}
-            Type: {metadata.get('type', 'Unknown')}
-            ID: {metadata.get('id', 'Unknown')}
-            Content: {clean_text(content[0:250])}
-            """
-            gradio_messages.append(
-                {"text": formatted_text, "is_text_box": True, "lines": 5}
-            )
+                            # Display content
+                            highlighted_text = highlight_stemmed_text(
+                                clean_text(content), query_terms
+                            )
+                            st.markdown(highlighted_text, unsafe_allow_html=True)
 
-            if metadata.get("img_path"):
-                print(f"loading image from {metadata.get('img_path')}")
-                img = load_image(metadata.get("img_path"))
-                if img:
-                    gradio_messages.append(gr.Image(img))
+                            # Display images
+                            if metadata.get("img_path"):
+                                img = load_image(metadata.get("img_path"))
+                                if img:
+                                    st.image(img, caption="Retrieved Image")
 
-    logger.info(gradio_messages)
-    return gradio_messages
+                            # Add Document Link
+                            if "doc_id" in doc:
+                                st.markdown(
+                                    f"[View Original Document](document/{metadata.get('url','')})"
+                                )
 
+            except requests.exceptions.RequestException as e:
+                st.error(f"Error making request: {str(e)}")
 
-demo = gr.ChatInterface(
-    fn=query_llm,
-    type="messages",
-    multimodal=True,
-)
 
 if __name__ == "__main__":
-    demo.launch()
+    main()

@@ -7,12 +7,8 @@ import yaml
 class InterfaceConfig(BaseModel):
     title: str
     description: str
-    examples: List[str]
-
-
-class AppConfig(BaseModel):
+    example: str
     serving_endpoint: str
-    interface: InterfaceConfig
 
 
 def load_config(config_path: str | Path) -> InterfaceConfig:
@@ -26,4 +22,4 @@ def load_config(config_path: str | Path) -> InterfaceConfig:
     """
     with open(config_path, "r") as f:
         raw_config = yaml.safe_load(f)
-        return AppConfig.model_validate(raw_config)
+        return InterfaceConfig.model_validate(raw_config)

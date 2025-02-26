@@ -1,0 +1,5 @@
+# Application configuration
+title: Multimodal Document Retrieval
+description: Search for documents and retrieve links and images of pages, tables, and figures.
+example: What is the factor of safety for fabric strapping?
+serving_endpoint: agents_devanshu_pandey-retriever_agent_demo-elaws

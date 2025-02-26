@@ -1,9 +1,0 @@
-# Application configuration
-interface:
-  title: Databricks LLM Chat
-  description: Chat with a Databricks-hosted LLM model
-  examples:
-    - What is machine learning?
-    - Write a short poem about data science
-    - Explain what a neural network is
-serving_endpoint: agents_shm-multimodal-agent_langgraph

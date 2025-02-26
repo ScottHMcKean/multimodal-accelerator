@@ -9,8 +9,6 @@ We use poetry to manage dependencies and virtual environments. We also use it to
 Config + location
 What to change for your thingy.
 
-# 
-
 
 ## Development Setup with Poetry
 
