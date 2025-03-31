@@ -76,9 +76,6 @@ from maud.agent.utils import graph_state_to_chat_type
 workflow = StateGraph(state)
 workflow.add_node("retrieve", retriever_node)
 workflow.add_node("generate_w_context", context_generation_node)
-workflow.add_node("query_rewrite", rewrite_query)
-workflow.add_edge(START, "query_rewrite")
-workflow.add_edge("query_rewrite", "retrieve")
 workflow.add_edge("retrieve", "generate_w_context")
 workflow.add_edge("generate_w_context", END)
 app = workflow.compile()
@@ -111,7 +108,7 @@ with mlflow.start_run():
 # MAGIC - We set a retriever schema for MLFLow so that it can trace properly
 # MAGIC - We set a well defined signature so that MLFLow knows that we can use the agent evaluation framework
 # MAGIC - We provide a list of resources to allow flow through authentication
-# MAGIC - We get a list of packages that matches of development package versions 
+# MAGIC - We get a list of packages that matches of development package versions
 
 # COMMAND ----------
 
@@ -173,7 +170,7 @@ with mlflow.start_run():
         model_config=str(implementation_path / "config.yaml"),
         pip_requirements=packages,
         artifact_path="agent",
-        code_paths=['maud'],
+        code_paths=["maud"],
         registered_model_name=maud_config.agent.uc_model_name,
         input_example=input_example,
         signature=signature,

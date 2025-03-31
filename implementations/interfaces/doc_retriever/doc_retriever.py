@@ -113,8 +113,8 @@ def main():
                             st.markdown(highlighted_text, unsafe_allow_html=True)
 
                             # Display images
-                            if metadata.get("img_path"):
-                                img = load_image(metadata.get("img_path"))
+                            if metadata.get("image_path"):
+                                img = load_image(metadata.get("image_path"))
                                 if img:
                                     st.image(img, caption="Retrieved Image")
 
