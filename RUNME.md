@@ -8,7 +8,6 @@ The solution accelerator is designed to be run on Databricks. Here are the steps
 
 1. Clone the repository
 
-
 2. 
 
 ## Development
