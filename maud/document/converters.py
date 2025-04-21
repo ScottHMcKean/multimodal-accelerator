@@ -46,7 +46,7 @@ class PageMetadataModel:
 
     def __init__(
         self,
-        llm_client: OpenAI = None,
+        llm_client: Optional[OpenAI] = None,
         llm_model: str = "gpt-4o-mini",
         enabled: bool = True,
     ):
@@ -251,7 +251,7 @@ class MAUDPipelineOptions(PdfPipelineOptions):
     classify_tables: bool = True
 
     # llm
-    llm_client: OpenAI = None
+    llm_client: Optional[OpenAI] = None
     llm_model: str = "gpt-4o-mini"
     max_tokens: int = 200
 
