@@ -22,7 +22,7 @@
 
 import pandas as pd
 
-doc_df = pd.read_csv("./fixtures/maintenance_documents.csv")
+doc_df = pd.read_csv("./fixtures/forge_reports.csv")
 doc_paths = spark.createDataFrame(doc_df)
 display(doc_paths)
 
@@ -40,6 +40,7 @@ import pyspark.sql.functions as F
 import pyspark.sql.types as T
 
 SAVE_PATH = f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}"
+
 
 @udf(T.BooleanType())
 def download_file(title, url):
@@ -61,6 +62,7 @@ doc_paths = doc_paths.withColumn(
 # MAGIC We will also leverage delta tables to scale our work and leverage workers to reduce document processing time downstream.
 
 # COMMAND ----------
+
 
 @udf(T.BinaryType())
 def load_url_to_binary(url):

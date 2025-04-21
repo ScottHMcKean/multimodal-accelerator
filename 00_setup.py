@@ -16,9 +16,9 @@ sys.path.append('./maud')
 
 CATALOG = 'shm'
 SCHEMA = 'multimodal'
-BRONZE_PATH = 'docs_bronze'
-SILVER_PATH = 'docs_silver'
-GOLD_PATH = 'docs_gold'
+BRONZE_PATH = 'maud_bronze'
+SILVER_PATH = 'maud_silver'
+GOLD_PATH = 'maud_gold'
 
 # COMMAND ----------
 
