@@ -38,7 +38,7 @@ if "DATABRICKS_RUNTIME_VERSION" in os.environ:
 else:
     token = workspace_client.config.token
 
-llm_model = "shm_gpt_4o_mini"
+llm_model = "databricks-claude-3-7-sonnet"
 llm_client = OpenAI(
     api_key=token,
     base_url=f"{workspace_url}/serving-endpoints",
@@ -65,10 +65,13 @@ import pandas as pd
 
 maud_pipeline_options = MAUDPipelineOptions(
     llm_client=llm_client,
-    llm_model="shm_gpt_4o_mini",
+    llm_model="databricks-claude-3-7-sonnet",
     max_tokens=200,
     clf_client=llm_client,
     clf_model='dummy_clf',
+    describe_pages=True,
+    describe_tables=True,
+    describe_pictures=True
 )
 
 # COMMAND ----------
@@ -82,21 +85,25 @@ maud_pipeline_options = MAUDPipelineOptions(
 from pathlib import Path
 import time
 
-# iterative on files from the bronze path
-files = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}").glob("*")
-types = [".xlsx", ".docx", ".pptx", ".pdf"]
-filenames = [file.name for file in files if file.suffix in types]
+# iterate on files from the documents table
+documents_df = spark.table(f"{CATALOG}.{SCHEMA}.documents")
+for row in documents_df.select("saved_file_path").collect():
+    print(row["saved_file_path"])
+
+PROCESSED_DOCS_VOL = 'processed_docs'
+
+# COMMAND ----------
 
 all_chunks = []
-for filename in filenames:
+for row in documents_df.select("saved_file_path").collect():
+    file_path = row["saved_file_path"]
     start_time = time.time()
-    print(filename)
+    print(file_path)
 
-    input_path = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{BRONZE_PATH}/{filename}")
-    output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{SILVER_PATH}")
+    output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
 
     converter = MAUDConverter(
-    input_path=input_path,
+    input_path=Path(file_path),
     output_dir=output_dir,
     llm_client=maud_pipeline_options.llm_client,
     llm_model=maud_pipeline_options.llm_model,

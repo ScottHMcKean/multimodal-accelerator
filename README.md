@@ -1,6 +1,6 @@
 <img src=https://raw.githubusercontent.com/databricks-industry-solutions/.github/main/profile/solacc_logo.png width="600px">
 
-# Multimodal Analysis of Unstructured Documents: Manufacturing Solution Accelerator
+# Multimodal Analysis of Unstructured Documents (MAUD): Energy and Manufacturing Solution Accelerator
 
 [![DBR](https://img.shields.io/badge/DBR-15.4_LTS_ML-red?logo=databricks&style=for-the-badge)](https://docs.databricks.com/release-notes/runtime/CHANGE_ME.html)
 [![CLOUD](https://img.shields.io/badge/CLOUD-AZURE-blue?logo=googlecloud&style=for-the-badge)](https://databricks.com/try-databricks)
@@ -12,7 +12,17 @@ Manufacturing, energy, and utility companies have an enormous amount of unstruct
 Databricks can help by providing a platform with open data, scaled compute, and a high degree of flexibility when using open source packages and foundation models. This solution accelerator provides an opinionated quickstart for multimodal document extraction, search and agent evaluation, and end user interactions. It is an end to end proof of concept for empowering teams to work better with complex engineering documents.
 
 ## Reference Architecture
-Our solution is divided into four main components: ingest, extract, featurize, and infer. We also use Databricks Apps to provide a basic user inferface for the solution. We then provide some examples of how to extend the solution with other tools.
+Our solution is divided into five main components: ingest, convert, feature, infer, and interface. Each component is implemented as a Databricks notebook. 
+
+1. Ingest: Ingest the documents from a source and store them in volumes and delta tables.
+
+2. Convert: Use layout analysis to extract and parse text, tables, images, and metadata from the documents.
+
+3. Feature: Feature engineer a useful vector representation of the documents for search and retrieval.
+
+4. Infer: Use a foundation model and agent framework to search and extract information from the documents.
+
+5. Interface: Provide a basic user interface for interacting with the agent and gathering feedback.
 
 <img src="assets/Multimodal Reference Architecture.png" width="800px">
 
@@ -30,20 +40,6 @@ This architecture leverages several services from the Databricks platform: Datab
 | Mosaic AI Model Serving  | $250/month | ~100ms | [Docs](https://docs.databricks.com/en/machine-learning/model-serving/index.html) |
 
 \* Example costs are illustrative estimates only and will vary based on usage, region, and implementation details. DBU = Databricks Unit.
-
-## Table of Contents
-
-Each solution component is implemented as a Databricks notebook. 
-
-1. Ingest: Ingest the documents from a source and store them in volumes and delta tables.
-
-2. Convert: Use layout analysis to extract and parse text, tables, images, and metadata from the documents.
-
-3. Feature: Feature engineer a useful vector representation of the documents for search and retrieval.
-
-4. Infer: Use a foundation model and agent framework to search and extract information from the documents.
-
-5. Interface: Provide a basic user interface for interacting with the agent and gathering feedback.
 
 ## Authors
 <scott.mckean@databricks.com>

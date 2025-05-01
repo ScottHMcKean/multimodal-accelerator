@@ -16,9 +16,8 @@ sys.path.append('./maud')
 
 CATALOG = 'shm'
 SCHEMA = 'multimodal'
-BRONZE_PATH = 'docs_bronze'
-SILVER_PATH = 'docs_silver'
-GOLD_PATH = 'docs_gold'
+RAW_DOCS_VOL = 'raw_docs'
+PROCESSED_DOCS_VOL = 'processed_docs'
 
 # COMMAND ----------
 
@@ -57,13 +56,13 @@ try:
 except:
     log.info(f"{SCHEMA} catalog exists")
 
-for volume_name in [BRONZE_PATH, SILVER_PATH, GOLD_PATH]:
+for vol_name in [RAW_DOCS_VOL, PROCESSED_DOCS_VOL]:
     try:
         w.volumes.create(
         catalog_name=CATALOG, 
         schema_name=SCHEMA, 
-        name=volume_name,
+        name=vol_name,
         volume_type=VolumeType.MANAGED
         )
     except:
-        log.info(f"{volume_name} volume exists")
+        log.info(f"{vol_name} volume exists")
