@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Convert (Ray Parallel Version)
+# MAGIC # Convert
 # MAGIC This module processes our bronze documents. It is the most involved and time consuming of the modules. We leverage the Docling framework to abstract away the layout analysis of a document.
 # MAGIC
 # MAGIC In order to make this useful downstream for multimodal vector search, we need three things:
@@ -69,6 +69,9 @@ maud_pipeline_options = MAUDPipelineOptions(
     max_tokens=200,
     clf_client=llm_client,
     clf_model='dummy_clf',
+    describe_pages=True,
+    describe_tables=True,
+    describe_pictures=True
 )
 
 # COMMAND ----------
@@ -79,95 +82,28 @@ maud_pipeline_options = MAUDPipelineOptions(
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
-from pyspark.sql.functions import pandas_udf
-from pyspark.sql.types import *
-import pandas as pd
-
-# Define schema for output chunks
-chunk_schema = StructType([
-    StructField("doc_id", StringType()),
-    StructField("chunk_text", StringType()),
-    StructField("metadata", MapType(StringType(), StringType()))
-])
-
-@pandas_udf(chunk_schema)
-def process_file_paths(file_paths: pd.Series) -> pd.DataFrame:
-    """Processes file paths in parallel using Spark executors"""
-    all_chunks = []
-    
-    # These need to be set per executor
-    output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
-    llm_client = initialize_llm_client()  # Implement your client initialization
-    
-    for file_path in file_paths:
-        file_name = Path(file_path).name
-        start_time = time.time()
-        
-        converter = MAUDConverter(
-            input_path=file_path,
-            output_dir=output_dir,
-            llm_client=llm_client,
-            llm_model=maud_pipeline_options.llm_model,
-            max_tokens=maud_pipeline_options.max_tokens,
-            overwrite=False,
-            format_options={
-                InputFormat.PDF: PdfFormatOption(
-                    pipeline_cls=MAUDPipeline,
-                    pipeline_options=MAUDPipelineOptions(),
-                )
-            }
-        )
-        
-        converter.convert()
-        converter.save_document()
-        chunks = converter.chunk()
-        
-        # Convert chunks to pandas DataFrame format
-        for chunk in chunks:
-            all_chunks.append({
-                "doc_id": file_name,
-                "chunk_text": chunk.text,
-                "metadata": chunk.metadata
-            })
-        
-        print(f"Processed {file_name} in {time.time() - start_time:.1f}s")
-    
-    return pd.DataFrame(all_chunks)
-
-# Parallel execution with Spark
-processed_chunks_df = (documents_df
-    .select("saved_file_path")
-    .limit(2)  # Remove for full dataset
-    .repartition(8, "saved_file_path")  # Adjust based on cluster size
-    .mapInPandas(process_file_paths, schema=chunk_schema)
-)
-
-# Collect results if needed (avoid for large datasets)
-all_chunks = [row.asDict() for row in processed_chunks_df.collect()]
-
-# COMMAND ----------
-
 from pathlib import Path
 import time
 
-
+# iterate on files from the documents table
 documents_df = spark.table(f"{CATALOG}.{SCHEMA}.documents")
+for row in documents_df.select("saved_file_path").collect():
+    print(row["saved_file_path"])
+
+PROCESSED_DOCS_VOL = 'processed_docs'
+
+# COMMAND ----------
 
 all_chunks = []
-for row in documents_df.select("saved_file_path").collect()[0:2]:
+for row in documents_df.select("saved_file_path").collect():
+    file_path = row["saved_file_path"]
     start_time = time.time()
-    file_path = Path(row["saved_file_path"])
-    file_name = file_path.name
-    print(file_name)
+    print(file_path)
 
     output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
 
     converter = MAUDConverter(
-    input_path=file_path,
+    input_path=Path(file_path),
     output_dir=output_dir,
     llm_client=maud_pipeline_options.llm_client,
     llm_model=maud_pipeline_options.llm_model,
@@ -192,10 +128,6 @@ for row in documents_df.select("saved_file_path").collect()[0:2]:
 # MAGIC %md
 # MAGIC ## Save chunks to Delta
 # MAGIC We now take the list of all the chunks we processed (this could be done asyncronously as well) and save into a delta table.
-
-# COMMAND ----------
-
-display(chunk_df.query("chunk_type == 'page'"))
 
 # COMMAND ----------
 
