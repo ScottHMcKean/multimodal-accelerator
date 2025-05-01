@@ -18,6 +18,10 @@
 # MAGIC %md
 # MAGIC ## Setup Ray
 # MAGIC We want our document processing to be fast and work in batches, but not cost a fortune. So we use Ray to parallelize the work off a table
+# MAGIC
+# MAGIC One gotcha here is that the autoscaling doesn't work well with custom libraries and requirements. If you don't reserve and initialize all the nodes at once, you won't have the custom packages. There are workarounds for this, but the easiest solution is to reserve all the workers prior to running ray.init().
+# MAGIC
+# MAGIC You can see how Ray is working with the Ray dashboard below.
 
 # COMMAND ----------
 
@@ -25,7 +29,7 @@ import ray
 from ray.util.spark import setup_ray_cluster, shutdown_ray_cluster
 
 setup_ray_cluster(
-  min_worker_nodes=1,
+  min_worker_nodes=6,
   max_worker_nodes=6, 
   num_cpus_head_node=4,
   num_cpus_worker_node=8,
@@ -127,7 +131,7 @@ import pandas as pd
 
 import ray
 
-@ray.remote(num_cpus=2, num_gpus=0)
+@ray.remote(num_cpus=2, num_gpus=0, max_task_retries=3)
 class DocumentProcessor:
     def __init__(self):
         """Empty constructor - no non-serializable objects here"""
@@ -183,22 +187,32 @@ ray.available_resources()
 
 from pathlib import Path
 file_paths = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob('*.pdf')
-list(file_paths)
-
-# COMMAND ----------
-
-from pathlib import Path
-file_paths = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob('*.pdf')
 
 # Manual actor sharding due to init process
-num_actors = 6
-actors = [DocumentProcessor.remote() for _ in range(num_actors)]
+num_actors = 12
+actors = [
+    DocumentProcessor.options(max_restarts=3).remote() 
+    for _ in range(num_actors)
+    ]
+    
 futures = [
     actors[i%num_actors].process_file.remote(path, workspace_url, token)
     for i, path in enumerate(file_paths)
 ]
 
-all_chunks = ray.get(futures)
+# COMMAND ----------
+
+from ray.exceptions import RayTaskError
+
+results = []
+for future in futures:
+    try:
+        results.append(ray.get(future))
+    except RayTaskError as e:
+        print(f"Task failed: {e}")
+        results.append(None)  # or log error details
+
+all_chunks = [res for res in results if res is not None]
 
 # COMMAND ----------
 
@@ -233,7 +247,7 @@ chunk_df.to_parquet(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}/chunks.pa
 # COMMAND ----------
 
 import pandas as pd
-chunk_df = pd.read_parquet(f"/Volumes/shm/osc/processed_docs/chunks.parquet")
+chunk_df = pd.read_parquet(f"/Volumes/shm/multimodal/processed_docs/chunks.parquet")
 
 # COMMAND ----------
 
