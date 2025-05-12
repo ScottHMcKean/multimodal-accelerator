@@ -256,7 +256,7 @@ class MAUDPipelineOptions(PdfPipelineOptions):
     max_tokens: int = 200
 
     # clf
-    clf_client: OpenAI = None
+    clf_client: Optional[OpenAI] = None
     clf_model: str = "yolo_v8"
 
 

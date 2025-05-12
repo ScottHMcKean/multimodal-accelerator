@@ -1,0 +1,4 @@
+catalog: "shm"
+schema: "multimodal"
+raw_docs_vol: "raw_docs"
+processed_docs_vol: "processed_docs"

@@ -13,11 +13,26 @@ import sys
 sys.path.append('./maud')
 
 # COMMAND ----------
+# COMMAND ----------
 
-CATALOG = 'shm'
-SCHEMA = 'multimodal'
-RAW_DOCS_VOL = 'raw_docs'
-PROCESSED_DOCS_VOL = 'processed_docs'
+# MAGIC %md
+# MAGIC ## Load Configuration
+# MAGIC Load configuration from MLflow model config file
+
+# COMMAND ----------
+
+from mlflow.models import ModelConfig
+from pathlib import Path
+import os
+
+# Load configuration from MLflow model config
+config = ModelConfig(development_config="config.yaml")
+
+# Set global variables from config
+CATALOG = config.get("catalog", "shm")
+SCHEMA = config.get("schema", "multimodal")
+RAW_DOCS_VOL = config.get("raw_docs_volume", "raw_docs")
+PROCESSED_DOCS_VOL = config.get("processed_docs_volume", "processed_docs")
 
 # COMMAND ----------
 
