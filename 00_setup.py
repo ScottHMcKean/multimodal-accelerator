@@ -15,7 +15,7 @@ sys.path.append('./maud')
 # COMMAND ----------
 
 CATALOG = 'shm'
-SCHEMA = 'multimodal'
+SCHEMA = 'osc'
 RAW_DOCS_VOL = 'raw_docs'
 PROCESSED_DOCS_VOL = 'processed_docs'
 

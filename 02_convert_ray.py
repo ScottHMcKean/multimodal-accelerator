@@ -229,7 +229,7 @@ chunk_df = pd.DataFrame(chunks_flat)
 # COMMAND ----------
 
 chunk_df.input_hash = chunk_df.input_hash.astype(str)
-chunk_df
+chunk_df.query("has_table == True").head(5)
 
 # COMMAND ----------
 
@@ -246,13 +246,13 @@ chunk_df.to_parquet(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}/chunks.pa
 
 # COMMAND ----------
 
-import pandas as pd
-chunk_df = pd.read_parquet(f"/Volumes/shm/multimodal/processed_docs/chunks.parquet")
+# import pandas as pd
+# chunk_df = pd.read_parquet(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}/chunks.parquet")
 
 # COMMAND ----------
 
-from pyspark.sql.functions import monotonically_increasing_id
-chunk_sp = spark.createDataFrame(chunk_df)
-chunk_sp = chunk_sp.withColumn("id", monotonically_increasing_id())
-chunk_sp.write.option("mergeSchema", "true").mode("overwrite").saveAsTable("shm.osc.chunks")
-display(chunk_sp)
+# from pyspark.sql.functions import monotonically_increasing_id
+# chunk_sp = spark.createDataFrame(chunk_df)
+# chunk_sp = chunk_sp.withColumn("id", monotonically_increasing_id())
+# chunk_sp.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(f"{CATALOG}/{SCHEMA}.chunks")
+# display(chunk_sp)

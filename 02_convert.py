@@ -21,6 +21,11 @@
 
 # COMMAND ----------
 
+# MAGIC %pip install openai
+# MAGIC %restart_python
+
+# COMMAND ----------
+
 # Get LLM Client
 from openai import OpenAI
 from databricks.sdk import WorkspaceClient
@@ -38,7 +43,7 @@ if "DATABRICKS_RUNTIME_VERSION" in os.environ:
 else:
     token = workspace_client.config.token
 
-llm_model = "databricks-claude-3-7-sonnet"
+llm_model = "agents_shm-marketing-genie_agent"
 llm_client = OpenAI(
     api_key=token,
     base_url=f"{workspace_url}/serving-endpoints",
@@ -95,7 +100,7 @@ PROCESSED_DOCS_VOL = 'processed_docs'
 # COMMAND ----------
 
 all_chunks = []
-for row in documents_df.select("saved_file_path").collect():
+for row in documents_df.select("saved_file_path").collect()[0:1]:
     file_path = row["saved_file_path"]
     start_time = time.time()
     print(file_path)
