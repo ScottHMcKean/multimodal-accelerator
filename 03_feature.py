@@ -5,7 +5,9 @@
 
 # COMMAND ----------
 
-# MAGIC %run ./00_setup
+catalog = "shm"
+schema = "osc"
+chunk_table = "chunks"
 
 # COMMAND ----------
 
@@ -67,3 +69,48 @@ except:
         embedding_model_endpoint_name="databricks-gte-large-en",
         columns_to_sync=vs_cols_to_sync,
     )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Create Vector Search As Tool
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT *
+# MAGIC FROM vector_search(
+# MAGIC   index=>'shm.osc.prospectus_index',
+# MAGIC   query_text=>"Blackrock investments",
+# MAGIC   num_results=>5,
+# MAGIC   query_type=>"hybrid"
+# MAGIC )
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC CREATE OR REPLACE FUNCTION shm.osc.prospectus_search(
+# MAGIC   query STRING COMMENT 'A query that should resemble a section of a prospectus'
+# MAGIC )
+# MAGIC RETURNS TABLE (
+# MAGIC   matching_descriptions STRING
+# MAGIC )
+# MAGIC COMMENT 'Returns the top 5 entries of financial prospectus. When using this tool, you should rewrite the user query into something that would appear on a financial prospectus. It also includes the heading, filename and pages where the chunk appeared'
+# MAGIC RETURN
+# MAGIC SELECT CONCAT(
+# MAGIC   'Filename: ', filename,
+# MAGIC   '\n Pages: ', CAST(pages AS string),
+# MAGIC   '\n Type: ', chunk_type,
+# MAGIC   '\n Text: ', enriched_text
+# MAGIC ) as result
+# MAGIC FROM vector_search(
+# MAGIC   index=>'shm.osc.prospectus_index',
+# MAGIC   query_text=>query,
+# MAGIC   num_results=>5,
+# MAGIC   query_type=>'hybrid'
+# MAGIC )
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT * FROM shm.osc.prospectus_search('Blackrock Investments')
