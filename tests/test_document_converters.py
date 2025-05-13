@@ -1,11 +1,13 @@
-from maud.document.converters import MAUDConverter
+from pathlib import Path
+import shutil
+
+import pytest
+import pandas as pd
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
+
+from maud.document.converters import MAUDConverter
 from maud.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
-from pathlib import Path
-import pytest
-import shutil
-import pandas as pd
 
 
 @pytest.fixture(scope="session")

@@ -29,12 +29,12 @@ import ray
 from ray.util.spark import setup_ray_cluster, shutdown_ray_cluster
 
 setup_ray_cluster(
-  min_worker_nodes=6,
-  max_worker_nodes=6, 
-  num_cpus_head_node=4,
-  num_cpus_worker_node=8,
-  num_gpus_worker_node=0
-  )
+    min_worker_nodes=6,
+    max_worker_nodes=6,
+    num_cpus_head_node=4,
+    num_cpus_worker_node=8,
+    num_gpus_worker_node=0,
+)
 
 # COMMAND ----------
 
@@ -54,18 +54,17 @@ workspace_url = workspace_client.config.host
 import os
 
 if "DATABRICKS_RUNTIME_VERSION" in os.environ:
-    token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
+    token = (
+        dbutils.notebook.entry_point.getDbutils()
+        .notebook()
+        .getContext()
+        .apiToken()
+        .get()
+    )
 else:
     token = workspace_client.config.token
 
-ray.init(
-  runtime_env={
-    "env_vars": {
-      "TOKEN": token,
-      "WORKSPACE_URL": workspace_url
-    }
-  }
-)
+ray.init(runtime_env={"env_vars": {"TOKEN": token, "WORKSPACE_URL": workspace_url}})
 
 # COMMAND ----------
 
@@ -74,9 +73,9 @@ ray.init(
 # MAGIC This is a basic test of running a ray process on a list of strings
 
 # COMMAND ----------
-
 from openai import OpenAI
 import ray
+
 
 @ray.remote
 class CapitalProcessor:
@@ -85,7 +84,7 @@ class CapitalProcessor:
         self.workspace_url = os.environ["WORKSPACE_URL"]
         self.token = os.environ["TOKEN"]
         self.llm_client = None  # Deferred initialization
-    
+
     def _init_client(self):
         """Initialize client with custom base_url"""
         if not self.llm_client:
@@ -93,16 +92,19 @@ class CapitalProcessor:
                 api_key=self.token,
                 base_url=f"{self.workspace_url}/serving-endpoints",
             )
-    
-    def process_file(self, country='France'):
+
+    def process_file(self, country="France"):
         self._init_client()
-        
+
         # Use client with custom base_url
         response = self.llm_client.chat.completions.create(
             model="databricks-claude-3-7-sonnet",
-            messages=[{"role": "user", "content": f"What is the capital of {country}?"}]
+            messages=[
+                {"role": "user", "content": f"What is the capital of {country}?"}
+            ],
         )
         return response.choices[0].message.content
+
 
 # COMMAND ----------
 
@@ -110,10 +112,7 @@ class CapitalProcessor:
 countries = ["France", "Germany", "Japan", "Brazil"]
 
 processor = CapitalProcessor.remote()
-results = ray.get([
-    processor.process_file.remote(country)
-    for country in countries
-])
+results = ray.get([processor.process_file.remote(country) for country in countries])
 print(results)
 
 # COMMAND ----------
@@ -131,35 +130,36 @@ import pandas as pd
 
 import ray
 
+
 @ray.remote(num_cpus=2, num_gpus=0, max_task_retries=3)
 class DocumentProcessor:
     def __init__(self):
         """Empty constructor - no non-serializable objects here"""
         pass
-    
+
     def process_file(self, file_path: str, workspace_url: str, token: str):
         """All initialization happens within method execution"""
         # Worker-side path creation
         output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize client on worker
         llm_client = OpenAI(
             api_key=token,
             base_url=f"{workspace_url}/serving-endpoints",
         )
-        
+
         maud_options = MAUDPipelineOptions(
             llm_client=llm_client,
             llm_model="databricks-claude-3-7-sonnet",
             max_tokens=200,
             clf_client=llm_client,  # Reuse same client
-            clf_model='dummy_clf',
+            clf_model="dummy_clf",
             describe_pages=True,
             describe_tables=True,
-            describe_pictures=True
+            describe_pictures=True,
         )
-        
+
         converter = MAUDConverter(
             input_path=file_path,
             output_dir=output_dir,
@@ -172,12 +172,13 @@ class DocumentProcessor:
                     pipeline_cls=MAUDPipeline,
                     pipeline_options=MAUDPipelineOptions(),
                 )
-            }
+            },
         )
-        
+
         converter.convert()
         converter.save_document()
         return converter.chunk()
+
 
 # COMMAND ----------
 
@@ -186,17 +187,15 @@ ray.available_resources()
 # COMMAND ----------
 
 from pathlib import Path
-file_paths = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob('*.pdf')
+
+file_paths = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf")
 
 # Manual actor sharding due to init process
 num_actors = 12
-actors = [
-    DocumentProcessor.options(max_restarts=3).remote() 
-    for _ in range(num_actors)
-    ]
-    
+actors = [DocumentProcessor.options(max_restarts=3).remote() for _ in range(num_actors)]
+
 futures = [
-    actors[i%num_actors].process_file.remote(path, workspace_url, token)
+    actors[i % num_actors].process_file.remote(path, workspace_url, token)
     for i, path in enumerate(file_paths)
 ]
 
@@ -223,6 +222,7 @@ all_chunks = [res for res in results if res is not None]
 # COMMAND ----------
 
 from itertools import chain
+
 chunks_flat = list(chain.from_iterable(all_chunks))
 chunk_df = pd.DataFrame(chunks_flat)
 
