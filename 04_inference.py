@@ -8,7 +8,9 @@
 
 # COMMAND ----------
 
-# MAGIC %run ./00_setup
+# MAGIC %pip install -r requirements.txt --quiet
+# MAGIC %restart_python
+
 
 # COMMAND ----------
 
@@ -117,6 +119,9 @@ mlflow.set_tracking_uri("databricks")
 mlflow.set_registry_uri("databricks-uc")
 
 # Setup experiment
+USERNAME = (
+    dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
+)
 mlflow.set_experiment(f"/Users/{USERNAME}/multimodal-langgraph")
 
 # Setup retriever schema

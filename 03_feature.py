@@ -5,9 +5,9 @@
 
 # COMMAND ----------
 
-catalog = "shm"
-schema = "osc"
-chunk_table = "chunks"
+# MAGIC %pip install -r requirements.txt --quiet
+# MAGIC %restart_python
+
 
 # COMMAND ----------
 
@@ -29,6 +29,7 @@ chunk_table = "chunks"
 # COMMAND ----------
 
 from mlflow.models import ModelConfig
+
 config = ModelConfig(development_config="implementations/agents/langgraph/config.yaml")
 
 vs_config = config.get("retriever")
@@ -36,14 +37,15 @@ vs_endpoint = vs_config.get("endpoint_name")
 vs_index_name = vs_config.get("index_name")
 vs_source_table = vs_config.get("source_table")
 vs_cols_to_sync = [
-  'filename',
-  'input_hash',
-  'pages',
-  'chunk_type',
-  'image_path',
-  'text',
-  'enriched_text',
-  'id']
+    "filename",
+    "input_hash",
+    "pages",
+    "chunk_type",
+    "image_path",
+    "text",
+    "enriched_text",
+    "id",
+]
 
 # COMMAND ----------
 
@@ -54,6 +56,7 @@ vs_cols_to_sync = [
 
 from databricks.vector_search.client import VectorSearchClient
 from agent.retrievers import index_exists
+
 client = VectorSearchClient()
 try:
     index = client.get_index(vs_endpoint, vs_index_name)

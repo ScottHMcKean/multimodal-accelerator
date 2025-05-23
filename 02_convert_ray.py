@@ -11,7 +11,8 @@
 
 # COMMAND ----------
 
-# MAGIC %run ./00_setup
+# MAGIC %pip install -r requirements.txt --quiet
+# MAGIC %restart_python
 
 # COMMAND ----------
 

@@ -7,6 +7,10 @@
 # MAGIC There two key concepts here:
 # MAGIC - How Databricks Apps work
 # MAGIC - How to work with a multimodal chat interface
+# COMMAND ----------
+
+# MAGIC %pip install -r requirements.txt --quiet
+# MAGIC %restart_python
 
 # COMMAND ----------
 
@@ -24,17 +28,21 @@ import numpy as np
 import mlflow.pyfunc
 
 endpoints = {
-  'langgraph': 'agents_shm-multimodal-agent_langgraph',
-  'pyfunc': 'agents_shm-multimodal-agent_pyfunc',
-  'tools': 'agents_shm-multimodal-agent_tools'
+    "langgraph": "agents_shm-multimodal-agent_langgraph",
+    "pyfunc": "agents_shm-multimodal-agent_pyfunc",
+    "tools": "agents_shm-multimodal-agent_tools",
 }
 
-serving_endpoint_name = endpoints['langgraph']
+serving_endpoint_name = endpoints["langgraph"]
 
 API_URL = f"https://adb-984752964297111.11.azuredatabricks.net/serving-endpoints/{serving_endpoint_name}/invocations"
-API_TOKEN = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
+API_TOKEN = (
+    dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
+)
 
-data = {"messages": [{"role":"user","content":"What strapping material is permitted?"}]}
+data = {
+    "messages": [{"role": "user", "content": "What strapping material is permitted?"}]
+}
 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {API_TOKEN}"}
 response = requests.post(url=API_URL, json=data, headers=headers)
 
@@ -43,7 +51,8 @@ response.content
 # COMMAND ----------
 
 import json
-json.loads(response.content)['custom_outputs']['message_history']
+
+json.loads(response.content)["custom_outputs"]["message_history"]
 
 # COMMAND ----------
 

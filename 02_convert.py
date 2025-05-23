@@ -11,19 +11,15 @@
 
 # COMMAND ----------
 
-# MAGIC %run ./00_setup
+# MAGIC %pip install -r requirements.txt --quiet
+# MAGIC %restart_python
+
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Setup LLM Client
 # MAGIC We use our workspace client to configure both local and notebook execution for our LLM client for describing images. We keep costs low by using 4o-mini via the Mosaic AI model gateway
-
-# COMMAND ----------
-
-# MAGIC %pip install openai
-# MAGIC %restart_python
-
 # COMMAND ----------
 
 # Get LLM Client
@@ -39,7 +35,13 @@ workspace_url = workspace_client.config.host
 import os
 
 if "DATABRICKS_RUNTIME_VERSION" in os.environ:
-    token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
+    token = (
+        dbutils.notebook.entry_point.getDbutils()
+        .notebook()
+        .getContext()
+        .apiToken()
+        .get()
+    )
 else:
     token = workspace_client.config.token
 
@@ -73,10 +75,10 @@ maud_pipeline_options = MAUDPipelineOptions(
     llm_model="databricks-claude-3-7-sonnet",
     max_tokens=200,
     clf_client=llm_client,
-    clf_model='dummy_clf',
+    clf_model="dummy_clf",
     describe_pages=True,
     describe_tables=True,
-    describe_pictures=True
+    describe_pictures=True,
 )
 
 # COMMAND ----------
@@ -95,7 +97,7 @@ documents_df = spark.table(f"{CATALOG}.{SCHEMA}.documents")
 for row in documents_df.select("saved_file_path").collect():
     print(row["saved_file_path"])
 
-PROCESSED_DOCS_VOL = 'processed_docs'
+PROCESSED_DOCS_VOL = "processed_docs"
 
 # COMMAND ----------
 
@@ -108,18 +110,18 @@ for row in documents_df.select("saved_file_path").collect()[0:1]:
     output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
 
     converter = MAUDConverter(
-    input_path=Path(file_path),
-    output_dir=output_dir,
-    llm_client=maud_pipeline_options.llm_client,
-    llm_model=maud_pipeline_options.llm_model,
-    max_tokens=maud_pipeline_options.max_tokens,
-    overwrite=False,
-    format_options={
-        InputFormat.PDF: PdfFormatOption(
-            pipeline_cls=MAUDPipeline,
-            pipeline_options=MAUDPipelineOptions(),
-        )
-        }
+        input_path=Path(file_path),
+        output_dir=output_dir,
+        llm_client=maud_pipeline_options.llm_client,
+        llm_model=maud_pipeline_options.llm_model,
+        max_tokens=maud_pipeline_options.max_tokens,
+        overwrite=False,
+        format_options={
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_cls=MAUDPipeline,
+                pipeline_options=MAUDPipelineOptions(),
+            )
+        },
     )
 
     result = converter.convert()
@@ -137,6 +139,7 @@ for row in documents_df.select("saved_file_path").collect()[0:1]:
 # COMMAND ----------
 
 import pandas as pd
+
 chunk_df = pd.DataFrame(all_chunks)
 chunk_df.input_hash = chunk_df.input_hash.astype(str)
 chunk_df
@@ -148,5 +151,7 @@ from pyspark.sql.functions import monotonically_increasing_id
 
 chunk_sp = spark.createDataFrame(chunk_df)
 chunk_sp = chunk_sp.withColumn("id", monotonically_increasing_id())
-chunk_sp.write.option("mergeSchema", "true").mode("overwrite").saveAsTable("shm.multimodal.processed_chunks")
+chunk_sp.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(
+    "shm.multimodal.processed_chunks"
+)
 display(chunk_sp)
