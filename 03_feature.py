@@ -7,7 +7,30 @@
 
 # MAGIC %pip install -r requirements.txt --quiet
 # MAGIC %restart_python
+# MAGIC
 
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Move converted index to a table
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Because our conversion process overtook spark, we reload the cached chunks.parquet file and save it to a table
+
+# COMMAND ----------
+
+import pandas as pd
+chunk_df = pd.read_parquet(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}/chunks.parquet")
+
+# COMMAND ----------
+
+from pyspark.sql.functions import monotonically_increasing_id
+chunk_sp = spark.createDataFrame(chunk_df)
+chunk_sp = chunk_sp.withColumn("id", monotonically_increasing_id())
+chunk_sp.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(f"{CATALOG}/{SCHEMA}.chunks")
+display(chunk_sp)
 
 # COMMAND ----------
 

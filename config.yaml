@@ -7,18 +7,18 @@ model:
   endpoint_name: databricks-meta-llama-3-3-70b-instruct
   parameters:
     temperature: 0
-    max_tokens: 400
+    msax_tokens: 400
 retriever:
   endpoint_name: one-env-shared-endpoint-3
-  index_name: shm.multimodal.multimodal_index
-  source_table: shm.multimodal.processed_chunks
+  index_name: shm.osc.multimodal_index
+  source_table: shm.osc.processed_chunks
   embedding_model: databricks-gte-large-en
   search_type:
   score_threshold: 0
   parameters:
     score_threshold: 0
-    k: 3
-    query_type: ann
+    k: 5
+    query_type: hybrid
   mapping:
     chunk_text: enriched_text
     document_uri: image_path
