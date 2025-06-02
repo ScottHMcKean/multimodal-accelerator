@@ -9,11 +9,11 @@
 # MAGIC - A reloadable and cachable conversion
 # MAGIC - Vector search ready text chunks that also incorporate tables and figures
 # MAGIC
-# MAGIC This notebook is designed to be used with a classic cluster using ML Runtime 15.4 LTS, with CPU compute. It was tested with a STANDARD_e8_v3 with 6 workers in Azure.
+# MAGIC This notebook is designed to be used with a classic cluster using ML Runtime 15.4 LTS, with CPU compute. It was tested with a STANDARD_e8_v3 with 6 workers in Azure. The goal is to reduce cost as much as possible by using cheap CPU workers with high utilization across workers.
 
 # COMMAND ----------
 
-# MAGIC %pip install -r requirements.txt --quiet
+# MAGIC %pip install -r requirements-convert.txt --quiet
 # MAGIC %restart_python
 
 # COMMAND ----------
@@ -43,8 +43,8 @@ from ray.util.spark import setup_ray_cluster, shutdown_ray_cluster
 setup_ray_cluster(
     min_worker_nodes=4,
     max_worker_nodes=4,
-    num_cpus_head_node=4,
-    num_cpus_worker_node=8,
+    num_cpus_head_node=4, # Use half our driver for processes too
+    num_cpus_worker_node=8, # Use all worker CPUs
     num_gpus_worker_node=0,
 )
 
@@ -93,15 +93,24 @@ config = ModelConfig(development_config="config.yaml")
 CATALOG = config.get("data").get("catalog")
 SCHEMA = config.get("data").get("schema")
 PROCESSED_DOCS_VOL = config.get("data").get("processed_docs_vol")
+OVERWRITE = config.get("data").get("overwrite")
+
+# COMMAND ----------
+
+OVERWRITE
 
 # COMMAND ----------
 
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
+from pathlib import Path
 from maud.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
 from openai import OpenAI
 import pandas as pd
 import ray
+
+output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
+output_dir.mkdir(parents=True, exist_ok=True)
 
 @ray.remote(num_cpus=2, num_gpus=0, max_task_retries=3)
 class DocumentProcessor:
@@ -113,7 +122,6 @@ class DocumentProcessor:
         """All initialization happens within method execution"""
         # Worker-side path creation
         output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
-        output_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize client on worker
         llm_client = OpenAI(
@@ -138,7 +146,7 @@ class DocumentProcessor:
             llm_client=maud_options.llm_client,
             llm_model=maud_options.llm_model,
             max_tokens=maud_options.max_tokens,
-            overwrite=False,
+            overwrite=OVERWRITE,
             format_options={
                 InputFormat.PDF: PdfFormatOption(
                     pipeline_cls=MAUDPipeline,
@@ -167,7 +175,8 @@ from pathlib import Path
 file_paths = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf")
 
 # Manual actor sharding due to init process
-num_actors = 12
+# Actors = Total Worker Cores / Cores Per Process 
+num_actors = int(ray.available_resources()['CPU'] / 2)
 actors = [DocumentProcessor.options(max_restarts=3).remote() for _ in range(num_actors)]
 
 futures = [
@@ -208,7 +217,11 @@ chunk_df = pd.DataFrame(chunks_flat)
 
 # COMMAND ----------
 
-chunk_df.input_hash = chunk_df.input_hash.astype(str)
+chunk_df.query()
+
+# COMMAND ----------
+
+:"chunk_df.input_hash = chunk_df.input_hash.astype(str)
 chunk_df.query("has_table == True").head(5)
 
 # COMMAND ----------

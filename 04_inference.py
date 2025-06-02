@@ -1,16 +1,12 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # Inference
-# MAGIC
-# MAGIC This module bring everything together. We take our vector store, a foundation model, and implementation code and deploy a serving endpoint that can be used for multimodal retrieval.
-# MAGIC
-# MAGIC This subsection (04a) implements the inference flow using LangGraph
+# MAGIC This module bring everything together. We take our vector store, a foundation model, and implementation code and deploy an agent that can be used for multimodal retrieval. This notebook used LangGraph as the main deployment framework (along with lots of MLFLow) and has been tested on serverless.
 
 # COMMAND ----------
 
-# MAGIC %pip install -r requirements.txt --quiet
+# MAGIC %pip install -r requirements-agent.txt --quiet
 # MAGIC %restart_python
-
 
 # COMMAND ----------
 
@@ -20,17 +16,10 @@
 
 # COMMAND ----------
 
-# load config
-from pathlib import Path
+# load config as both an mlflow object and a pydantic class
 import mlflow
 from maud.agent.config import parse_config
-import os
-
-root_dir = Path(os.getcwd())
-implementation_path = root_dir / "implementations" / "agents" / "langgraph"
-mlflow_config = mlflow.models.ModelConfig(
-    development_config=implementation_path / "config.yaml"
-)
+mlflow_config = mlflow.models.ModelConfig(development_config="config.yaml")
 maud_config = parse_config(mlflow_config)
 
 # COMMAND ----------
@@ -41,7 +30,9 @@ maud_config = parse_config(mlflow_config)
 
 # COMMAND ----------
 
-maud_config
+from maud.agent.retrievers import get_vector_retriever
+retriever = get_vector_retriever(maud_config)
+retriever.invoke('Microseismic events')
 
 # COMMAND ----------
 

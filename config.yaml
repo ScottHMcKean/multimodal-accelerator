@@ -3,31 +3,27 @@ data:
   schema: multimodal
   raw_docs_vol: raw_docs
   processed_docs_vol: processed_docs
+  chunks_table_name: chunks
+  overwrite: True
 model:
   endpoint_name: databricks-meta-llama-3-3-70b-instruct
-  parameters:
-    temperature: 0
-    msax_tokens: 400
+  temperature: 0
+  max_tokens: 400
 retriever:
   endpoint_name: one-env-shared-endpoint-3
-  index_name: shm.osc.multimodal_index
-  source_table: shm.osc.processed_chunks
+  index_name: index
   embedding_model: databricks-gte-large-en
-  search_type:
+  search_type: hybrid
   score_threshold: 0
-  parameters:
-    score_threshold: 0
-    k: 5
-    query_type: hybrid
-  mapping:
-    chunk_text: enriched_text
-    document_uri: image_path
-    primary_key: id
-    other_columns:
-      - pages
-      - chunk_type
-      - filename
-      - text
+  num_results: 5
+  text_column: enriched_text
+  document_uri: image_path
+  primary_key: id
+  additional_columns:
+    - filename
+    - input_hash
+    - pages
+    - chunk_type
   chunk_template: 'Passage: {chunk_text}\n Document URI: {document_uri}\n'
 agent:
   streaming: False

@@ -74,7 +74,7 @@ for vol_name in [RAW_DOCS_VOL, PROCESSED_DOCS_VOL]:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC We use a standard spark user defined function (UDF) to download the files and setup a driver table with the downloaded doc path.
+# MAGIC We use a standard spark user defined function (UDF) to download the files and setup a driver table with the downloaded doc path. We use a spark UDF to download all the files in parallel.
 
 # COMMAND ----------
 
@@ -96,10 +96,7 @@ def download_file(url):
 
 # COMMAND ----------
 
-# Download all files in the dataframe in parallel
-doc_paths = doc_paths.withColumn(
-    "saved_file_path", download_file(F.col("download_link"))
-)
+doc_paths = doc_paths.withColumn("saved_file_path", download_file(F.col("download_link")))
 
 (
     doc_paths.write.format("delta")
