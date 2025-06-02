@@ -1,10 +1,6 @@
-from .extensions import get_openai_description
-from pathlib import Path
+from typing import Literal, Annotated, Union, Optional
 
-from typing import List, Literal, Annotated, Union, Optional
-from enum import Enum
 from pydantic import BaseModel, Field
-
 from docling_core.types.doc import PictureClassificationData
 from docling_core.types.doc.document import PictureDescriptionData
 
