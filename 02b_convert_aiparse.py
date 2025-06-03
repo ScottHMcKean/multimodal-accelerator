@@ -6,8 +6,6 @@
 # MAGIC The AI_PARSE notebook is a work in progress. For now it is just a demonstration to show how AI_PARSE works. The ultimate goal will be to take the AI_PARSE output and generate the same table as our Docling / Ray for compatibility.
 # MAGIC
 # MAGIC This notebook works with Serverless, but you must use Environment version 2.
-# MAGIC
-# MAGIC
 
 # COMMAND ----------
 

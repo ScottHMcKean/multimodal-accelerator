@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maud"
+version = "0.0.4"
+description = "wheel file based on maud"
+authors = [
+    { name = "Scott McKean", email = "scott.mckean@databricks.com" }
+]
+readme = "README.md"
+requires-python = ">=3.11"
+urls = { Homepage = "https://databricks.com" }
+dependencies = [
+    "databricks-agents==0.21.2",
+    "databricks-langchain==0.4.2",
+    "langgraph==0.4.1",
+    "mlflow==2.22.0",
+    "uv",
+    "docling==2.31.1",
+    "pytest==8.3.5",
+    "openai==1.78.1"
+]
+
+[project.scripts]
+main = "maud.main:main"  # Optional: only if you have a CLI entry point
+
+[tool.setuptools]
+package-dir = { "" = "maud" }
+
+[tool.setuptools.packages.find]
+where = ["maud"]
+
+[tool.pytest.ini_options]
+pythonpath = "maud"

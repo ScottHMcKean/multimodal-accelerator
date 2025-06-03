@@ -97,10 +97,6 @@ OVERWRITE = config.get("data").get("overwrite")
 
 # COMMAND ----------
 
-OVERWRITE
-
-# COMMAND ----------
-
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
 from pathlib import Path

@@ -4,13 +4,13 @@ MAUD uses the LangGraph library to build and deploy agent workflows. This docume
 
 The [graph definitions](https://langchain-ai.github.io/langgraph/reference/graphs/#graph-definitions) in the LangGraph documentation are helpful for understanding the options for constructing workflows.
 
-LangGraph offers multiple streaming modes, but this repo uses the basic [stream](https://langchain-ai.github.io/langgraph/concepts/streaming/#streaming) mode since MLflow doesn't support async. This allows returning node outputs to users during execution, enabling feedback during intermediate steps.
+LangGraph offers multiple streaming modes, but this repo uses the basic [stream](https://langchain-ai.github.io/langgraph/concepts/streaming/#streaming) mode since MLflow doesn't support async yet. This allows returning node outputs to users during execution, enabling feedback during intermediate steps.
 
 ## Deployment Models
 
 We use MLFLow's [models from code](https://mlflow.org/docs/latest/model/models-from-code.html) approach to logging. There are some [limitations to be aware of](https://mlflow.org/docs/latest/model/dependencies.html#caveats-of-code-paths-option) that matter for how the project is structure.
 
-LangGraph models can be deployed using MLFlow's [langchain flavor](https://mlflow.org/docs/latest/python_api/mlflow.langchain.html#mlflow.langchain.log_model) or using pyfunc and the [ChatModel](https://mlflow.org/docs/latest/llms/chat-model-intro/index.html) interface.
+LangGraph models can be deployed using MLFlow's [pyfunc flavor](https://mlflow.org/docs/latest/python_api/mlflow.langchain.html#mlflow.langchain.log_model) or using pyfunc and the [ChatModel](https://mlflow.org/docs/latest/llms/chat-model-intro/index.html) interface.
 
 ## Signatures
 

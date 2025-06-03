@@ -41,7 +41,46 @@ This architecture leverages several services from the Databricks platform: Datab
 
 \* Example costs are illustrative estimates only and will vary based on usage, region, and implementation details. DBU = Databricks Unit.
 
+# Running Multimodal Analysis of Unstructured Documents (MAUD)
+
+This document guides your through running the solution accelerator, modifying it for your use case, and deploying it to Databricks.
+
+## Quick Start
+
+The solution accelerator is designed to be run on Databricks. Here are the steps to get started quickly.
+
+1. Clone the repository
+
+2. Spin up a Databricks cluster with ML Runtime 15.4 or higher
+
+3. Start running the notebooks in order
+
+MAUD uses the LangGraph library to build and deploy agent workflows. This documentation is a summary of the LangGraph documentation and the code in the repository.
+
+## LangGraph
+The [graph definitions](https://langchain-ai.github.io/langgraph/reference/graphs/#graph-definitions) in the LangGraph documentation are helpful for understanding the options for constructing workflows.
+
+LangGraph offers multiple streaming modes, but this repo uses the basic [stream](https://langchain-ai.github.io/langgraph/concepts/streaming/#streaming) mode since MLflow doesn't support async yet. This allows returning node outputs to users during execution, enabling feedback during intermediate steps.
+
+## Modifications
+
+We have tried to keep environment management simple. We use uv to manage the environment and the requirements. There is a single configuration file that is used to configure the entire solution in the root (`config.yaml`).
+
+### Local Development
+You can also test it locally. We use UV for environment management. Here are linux / macos instructions for setting up a local environment, but here is the [official guide](https://github.com/astral-sh/uv#installation).
+
+```bash
+brew install uv
+```
+
+```bash
+uv venv .venv  
+source .venv/bin/activate
+uv pip install -r requirements.txt
+```
+
 ## Authors
+
 <scott.mckean@databricks.com>
 <chris.chalcraft@databricks.com>
 <volo.vragov@databricks.com>
@@ -63,3 +102,9 @@ Any issues discovered through the use of this project should be filed as GitHub 
 |docling|Document parsing and export|MIT|https://github.com/docling/docling|
 
 Docling has quite a few dependencies: python-bidi, pyclipper, mpmath, filetype, XlsxWriter, typing-extensions, tqdm, tifffile, tabulate, sympy, soupsieve, shellingham, Shapely, scipy, safetensors, rtree, rpds-py, regex, pyyaml, python-dotenv, pypdfium2, pygments, pyflakes, pillow, opencv-python-headless, ninja, networkx, mdurl, MarkupSafe, marko, lxml, lazy-loader, jsonref, fsspec, filelock, et-xmlfile, dill, deepsearch-glm, click, attrs, annotated-types, referencing, python-pptx, python-docx, pydantic-core, openpyxl, multiprocess, mpire, markdown-it-py, jsonlines, jinja2, imageio, huggingface_hub, beautifulsoup4, autoflake, torch, tokenizers, scikit-image, rich, pydantic, jsonschema-specifications, docling-parse, typer, transformers, torchvision, semchunk, pydantic-settings, jsonschema, easyocr, docling-ibm-models, docling-core, docling
+
+# Security Policy
+
+## Reporting a Vulnerability
+
+Please email bugbounty@databricks.com to report any security vulnerabilities. We will acknowledge receipt of your vulnerability and strive to send you regular updates about our progress. If you're curious about the status of your disclosure please feel free to email us again. If you want to encrypt your disclosure email, you can use [this PGP key](https://keybase.io/arikfr/key.asc).
