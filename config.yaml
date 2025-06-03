@@ -27,7 +27,7 @@ retriever:
   chunk_template: 'Passage: {chunk_text}\n Document URI: {document_uri}\n'
 agent:
   streaming: False
-  experiment_location: /Users/scott.mckean/agent_langgraph
+  experiment_location: /Users/scott.mckean@databricks.com/agent_langgraph
   uc_model_name: shm.multimodal.agent_langgraph
 interface:
   title: Multimodal Document Retrieval

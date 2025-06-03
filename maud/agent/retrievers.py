@@ -25,7 +25,7 @@ def format_documents(config: MaudConfig, docs):
     chunk_contents = [
         chunk_template.format(
             chunk_text=d.page_content,
-            document_uri=d.metadata[config.retriever.mapping.document_uri],
+            document_uri=d.metadata[config.retriever.document_uri],
         )
         for d in docs
     ]

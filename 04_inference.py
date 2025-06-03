@@ -30,16 +30,9 @@ maud_config = parse_config(mlflow_config)
 
 # COMMAND ----------
 
-from maud.agent.retrievers import get_vector_retriever
-retriever = get_vector_retriever(maud_config)
-retriever.invoke('Microseismic events')
-
-# COMMAND ----------
-
 # API Interfaces
 from maud.agent.retrievers import get_vector_retriever
 from databricks_langchain import ChatDatabricks
-
 retriever = get_vector_retriever(maud_config)
 model = ChatDatabricks(endpoint=maud_config.model.endpoint_name)
 
@@ -69,11 +62,37 @@ from maud.agent.utils import graph_state_to_chat_type
 workflow = StateGraph(state)
 workflow.add_node("retrieve", retriever_node)
 workflow.add_node("generate_w_context", context_generation_node)
+workflow.add_edge(START, "retrieve")
 workflow.add_edge("retrieve", "generate_w_context")
 workflow.add_edge("generate_w_context", END)
 app = workflow.compile()
 
-chain = app | RunnableLambda(graph_state_to_chat_type)
+# COMMAND ----------
+
+input_example = {
+    "messages": [
+        {"role": "user", "content": "What are the depths of the wells in the project?"}
+    ]
+}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC We can now predict using the compiled graph
+
+# COMMAND ----------
+
+result = app.invoke(input_example)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC We can also use the graph in streaming mode
+
+# COMMAND ----------
+
+for msg in app.stream(input_example, stream_mode='updates'):
+  print(msg)
 
 # COMMAND ----------
 
@@ -82,15 +101,22 @@ chain = app | RunnableLambda(graph_state_to_chat_type)
 
 # COMMAND ----------
 
-input_example = {
-    "messages": [
-        {"role": "human", "content": "What is the factor of safety for fabric straps?"}
-    ]
-}
+from importlib import reload
+import agent
+reload(agent)
+from agent import MAUDAgent
+AGENT = MAUDAgent(app)
+AGENT.predict(input_example)
 
-with mlflow.start_run():
-    mlflow.langchain.autolog()
-    result = chain.invoke(input_example)
+# COMMAND ----------
+
+for msg in AGENT.predict_stream(input_example):
+  print(msg)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC
 
 # COMMAND ----------
 
@@ -108,26 +134,13 @@ with mlflow.start_run():
 # Setup tracking and registry
 mlflow.set_tracking_uri("databricks")
 mlflow.set_registry_uri("databricks-uc")
-
-# Setup experiment
-USERNAME = (
-    dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
-)
-mlflow.set_experiment(f"/Users/{USERNAME}/multimodal-langgraph")
+mlflow.set_experiment(maud_config.agent.experiment_location)
 
 # Setup retriever schema
 mlflow.models.set_retriever_schema(
-    primary_key=maud_config.retriever.mapping.primary_key,
-    text_column=maud_config.retriever.mapping.chunk_text,
-    doc_uri=maud_config.retriever.mapping.document_uri,
-)
-
-# Signature
-from mlflow.models import ModelSignature
-from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, CHAT_MODEL_OUTPUT_SCHEMA
-
-signature = ModelSignature(
-    inputs=CHAT_MODEL_INPUT_SCHEMA, outputs=CHAT_MODEL_OUTPUT_SCHEMA
+    primary_key=maud_config.retriever.primary_key,
+    text_column=maud_config.retriever.text_column,
+    doc_uri=maud_config.retriever.document_uri,
 )
 
 # Setup passthrough resources
@@ -138,13 +151,8 @@ from mlflow.models.resources import (
 
 databricks_resources = [
     DatabricksServingEndpoint(endpoint_name=maud_config.model.endpoint_name),
-    DatabricksVectorSearchIndex(index_name=maud_config.retriever.index_name),
+    DatabricksVectorSearchIndex(index_name=f"{maud_config.data.catalog}.{maud_config.data.schema}.{maud_config.retriever.index_name}"),
 ]
-
-# Get packages from requirements to set standard environments
-with open("requirements.txt", "r") as file:
-    packages = file.readlines()
-    package_list = [pkg.strip() for pkg in packages]
 
 # COMMAND ----------
 
@@ -160,16 +168,16 @@ with open("requirements.txt", "r") as file:
 # COMMAND ----------
 
 # Log the model
+from pkg_resources import get_distribution
 with mlflow.start_run():
-    logged_agent_info = mlflow.langchain.log_model(
-        lc_model=str(implementation_path / "agent.py"),
-        model_config=str(implementation_path / "config.yaml"),
-        pip_requirements=packages,
+    logged_agent_info = mlflow.pyfunc.log_model(
+        python_model="agent.py",
+        model_config="config.yaml",
         artifact_path="agent",
         code_paths=["maud"],
+        extra_pip_requirements=[f"databricks-connect=={get_distribution('databricks-connect').version}"],
         registered_model_name=maud_config.agent.uc_model_name,
         input_example=input_example,
-        signature=signature,
         resources=databricks_resources,
     )
 
@@ -182,10 +190,10 @@ with mlflow.start_run():
 
 # COMMAND ----------
 
-reloaded = mlflow.langchain.load_model(
+reloaded = mlflow.pyfunc.load_model(
     f"models:/{maud_config.agent.uc_model_name}/{logged_agent_info.registered_model_version}"
 )
-result = reloaded.invoke(input_example)
+result = reloaded.predict(input_example)
 
 # COMMAND ----------
 

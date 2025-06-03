@@ -1,25 +1,16 @@
 import logging
+import os
 import io
 from pathlib import Path
-import requests
-
-
 import streamlit as st
+from mlflow.deployments import get_deploy_client
 from databricks.sdk import WorkspaceClient
 from PIL import Image
 
-from maud.interface.config import load_config
-from maud.interface.highlighting import highlight_stemmed_text
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+# Get workspace client
 workspace_client = WorkspaceClient()
 workspace_url = workspace_client.config.host
 token = workspace_client.config.token
-
-config = load_config(str(Path(__file__).parent / "config.yaml"))
-
 
 def load_image(volume_path: str) -> Image.Image:
     """
@@ -46,87 +37,149 @@ def load_image(volume_path: str) -> Image.Image:
         logging.warning(f"Error loading image: {str(e)}")
         return None
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def clean_text(text: str) -> str:
-    """Clean text by removing newlines and special characters."""
-    import re
+# Ensure environment variable is set correctly
+assert os.getenv('SERVING_ENDPOINT'), "SERVING_ENDPOINT must be set in app.yaml."
 
-    # Remove newlines
-    text = text.replace("\n", " ")
-    # Remove special characters but keep spaces
-    text = re.sub(r"[^a-zA-Z0-9\s]", "", text)
-    # Remove extra spaces
-    text = " ".join(text.split())
-    return text
-
-
-def main():
-    st.title(config.title)
-    st.write(config.description)
-
-    # Query input
-    query = st.text_input(
-        label="Enter your query:",
-        placeholder=config.example,
+# Use info (prep for passthrough auth)
+def get_user_info():
+    headers = st.context.headers
+    return dict(
+        user_name=headers.get("X-Forwarded-Preferred-Username"),
+        user_email=headers.get("X-Forwarded-Email"),
+        user_id=headers.get("X-Forwarded-User"),
     )
+user_info = get_user_info()
 
-    endpoint_url = (
-        f"{workspace_url}/serving-endpoints/{config.serving_endpoint}/invocations"
-    )
+# Brand Colors
+PRIMARY = "#ACACAC"   # Deep blue
+ACCENT = "#E22E2F"    # Accent blue
+BG = "#F5F6FA"        # Light background
 
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+st.set_page_config(
+    page_title="Multimodal Chatbot",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items=None
+)
 
-    payload = {
-        "messages": [
-            {"role": "user", "content": query},
-        ]
-    }
+# Custom CSS
+st.markdown(f"""
+    <style>
+        .main {{
+            background-color: {BG};
+        }}
+        .block-container {{
+            padding-top: 3.5rem;
+        }}
+        .maud-header {{
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            background: white;
+            border-radius: 8px;
+            padding: 1.2rem 2rem 1.2rem 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.03);
+        }}
+        .maud-title {{
+            color: {PRIMARY};
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.1rem;
+            margin-top: 0.1rem;
+        }}
+        .maud-subtitle {{
+            color: {ACCENT};
+            font-size: 1.1rem;
+            font-weight: 400;
+            margin-bottom: 0;
+        }}
+        .stChatMessage {{
+            background: #fff;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            padding: 1rem;
+            border: 1px solid #e0e0e0;
+        }}
+        .stSidebar > div:first-child {{
+            background: {PRIMARY};
+            color: white;
+        }}
+        .stSidebar .stHeader {{
+            color: white;
+        }}
+    </style>
+""", unsafe_allow_html=True)
 
-    if query:
-        with st.spinner("Processing query..."):
-            try:
-                response = requests.post(endpoint_url, headers=headers, json=payload)
-                response.raise_for_status()  # Raise an exception for bad status codes
-                result = response.json()
+# Welcome
+st.markdown(
+    """
+    Welcome to the MAUD Chatbot!
+    """,
+    unsafe_allow_html=True
+)
 
-                st.write("### Assistant")
-                ai_response = result["choices"][0]["message"]["content"]
-                query_terms = query.lower().split()
-                st.markdown(ai_response, unsafe_allow_html=True)
+# Initialize session state
+if "visibility" not in st.session_state:
+    st.session_state.visibility = "visible"
+    st.session_state.disabled = False
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "referenced_documents" not in st.session_state:
+    st.session_state.referenced_documents = set()
 
-                # Display retrieved documents
-                if "documents" in result["custom_outputs"]:
-                    st.write("### Retrieved Documents")
+# Display chat messages from history on app rerun
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-                    for doc in result["custom_outputs"].get("documents", []):
-                        metadata = doc.get("metadata", {})
-                        content = doc.get("page_content", "")
-                        with st.expander(f"Document {metadata.get('id', '')}"):
-                            # Display metadata
-                            st.markdown("**Metadata:**")
-                            st.json(doc.get("metadata", {}))
+# Accept user input
+if prompt := st.chat_input("What would you like to know about today?"):
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # Display user message in chat message container
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-                            # Display content
-                            highlighted_text = highlight_stemmed_text(
-                                clean_text(content), query_terms
-                            )
-                            st.markdown(highlighted_text, unsafe_allow_html=True)
+    # Display assistant response in chat message container
+    with st.chat_message("assistant"):
+        # Query the Databricks serving endpoint
+        result = get_deploy_client('databricks').predict(
+            endpoint=os.getenv("SERVING_ENDPOINT"),
+            inputs={'messages': st.session_state.messages, "max_tokens": 10000},
+        )
+        assistant_response = result['messages'][-1]['content']
+        st.markdown(assistant_response)
 
-                            # Display images
-                            if metadata.get("image_path"):
-                                img = load_image(metadata.get("image_path"))
-                                if img:
-                                    st.image(img, caption="Retrieved Image")
+    # Handle custom_outputs for images and pages
+    custom_outputs = result.get("custom_outputs", {})
+    st.session_state.referenced_documents = custom_outputs.get('documents',[])
+    
+    # Add assistant response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": assistant_response})
 
-                            # Add Document Link
-                            if "doc_id" in doc:
-                                st.markdown(
-                                    f"[View Original Document](document/{metadata.get('url','')})"
-                                )
-
-            except requests.exceptions.RequestException as e:
-                st.error(f"Error making request: {str(e)}")
-
-
-if __name__ == "__main__":
-    main()
+with st.sidebar:
+    st.header("Retrieved References")
+    
+    if st.session_state.referenced_documents:
+        for doc in st.session_state.referenced_documents:
+            img_path = doc['metadata']['image_path']
+            page = int(doc['metadata']['pages'][0])
+            filename = doc['metadata']['filename']
+            
+            if img_path == '':
+                continue
+            
+            img = load_image(img_path)
+            
+            if img:
+                st.markdown(
+                    f"**{filename.lower()}** &mdash; Page {page}"
+                )
+                st.image(img, use_container_width=True)
