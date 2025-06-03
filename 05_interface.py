@@ -10,6 +10,11 @@
 
 # COMMAND ----------
 
+# MAGIC %pip install mlflow
+# MAGIC %restart_python
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## Testing Our Deployed Agent
 # MAGIC A serving endpoint abstracts away a lot of the complexities of AI systems - especially when combined with agentic frameworks. We can test our serving endpoint below to see how the input and output signatures will react with our deployed agent.
@@ -18,32 +23,20 @@
 
 # COMMAND ----------
 
-import time
-import requests
-import numpy as np
-import mlflow.pyfunc
-
-endpoints = {
-  'langgraph': 'agents_shm-multimodal-agent_langgraph',
-  'pyfunc': 'agents_shm-multimodal-agent_pyfunc',
-  'tools': 'agents_shm-multimodal-agent_tools'
+input_example = {
+    "messages": [
+        {"role": "user", "content": "What are the depths of the wells in the project?"}
+    ]
 }
-
-serving_endpoint_name = endpoints['langgraph']
-
-API_URL = f"https://adb-984752964297111.11.azuredatabricks.net/serving-endpoints/{serving_endpoint_name}/invocations"
-API_TOKEN = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
-
-data = {"messages": [{"role":"user","content":"What strapping material is permitted?"}]}
-headers = {"Content-Type": "application/json", "Authorization": f"Bearer {API_TOKEN}"}
-response = requests.post(url=API_URL, json=data, headers=headers)
-
-response.content
 
 # COMMAND ----------
 
-import json
-json.loads(response.content)['custom_outputs']['message_history']
+from mlflow.deployments import get_deploy_client
+
+result = get_deploy_client('databricks').predict(
+    endpoint="agents_shm-multimodal-agent_langgraph",
+    inputs=input_example
+)
 
 # COMMAND ----------
 
@@ -63,7 +56,6 @@ json.loads(response.content)['custom_outputs']['message_history']
 
 from databricks.sdk import WorkspaceClient
 from maud.interface.create import create_app
-
 w = WorkspaceClient()
 
 # COMMAND ----------

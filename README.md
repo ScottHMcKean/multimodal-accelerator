@@ -61,6 +61,5 @@ Any issues discovered through the use of this project should be filed as GitHub 
 | library                                | description             | license    | source                                              |
 |----------------------------------------|-------------------------|------------|-----------------------------------------------------|
 |docling|Document parsing and export|MIT|https://github.com/docling/docling|
-|markitdown|Document parsing and export|MIT|https://github.com/microsoft/markitdown|
 
 Docling has quite a few dependencies: python-bidi, pyclipper, mpmath, filetype, XlsxWriter, typing-extensions, tqdm, tifffile, tabulate, sympy, soupsieve, shellingham, Shapely, scipy, safetensors, rtree, rpds-py, regex, pyyaml, python-dotenv, pypdfium2, pygments, pyflakes, pillow, opencv-python-headless, ninja, networkx, mdurl, MarkupSafe, marko, lxml, lazy-loader, jsonref, fsspec, filelock, et-xmlfile, dill, deepsearch-glm, click, attrs, annotated-types, referencing, python-pptx, python-docx, pydantic-core, openpyxl, multiprocess, mpire, markdown-it-py, jsonlines, jinja2, imageio, huggingface_hub, beautifulsoup4, autoflake, torch, tokenizers, scikit-image, rich, pydantic, jsonschema-specifications, docling-parse, typer, transformers, torchvision, semchunk, pydantic-settings, jsonschema, easyocr, docling-ibm-models, docling-core, docling

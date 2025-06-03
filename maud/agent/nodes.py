@@ -9,15 +9,12 @@ from .utils import (
     format_generation_assistant,
     get_last_user_message,
 )
-from langchain_openai import ChatOpenAI
 from databricks_langchain import ChatDatabricks
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_core.runnables import RunnableLambda
 
 
-def make_simple_generation_node(
-    model: Union[ChatOpenAI, ChatDatabricks], config: MaudConfig
-):
+def make_simple_generation_node(model: ChatDatabricks, config: MaudConfig):
     def simple_generation_node(state: Union[GraphState, StreamState]) -> Dict[str, Any]:
         """
         Simple generation node that does not use the prompt or context
@@ -38,7 +35,7 @@ def make_query_vector_database_node(
     retriever: VectorStoreRetriever, config: MaudConfig
 ):
     def query_vector_database_node(
-        state: Union[GraphState, StreamState]
+        state: Union[GraphState, StreamState],
     ) -> Dict[str, Any]:
         """
         Retrieve and format the documents from the vector index.
@@ -51,11 +48,9 @@ def make_query_vector_database_node(
     return query_vector_database_node
 
 
-def make_context_generation_node(
-    model: Union[ChatOpenAI, ChatDatabricks], config: MaudConfig
-):
+def make_context_generation_node(model: ChatDatabricks, config: MaudConfig):
     def context_generation_node(
-        state: Union[GraphState, StreamState]
+        state: Union[GraphState, StreamState],
     ) -> Dict[str, Any]:
         """
         Inject the users's question, which may have been previously rephrased
@@ -81,11 +76,9 @@ def make_context_generation_node(
     return context_generation_node
 
 
-def make_rephrase_generation_node(
-    model: Union[ChatOpenAI, ChatDatabricks], config: MaudConfig
-):
+def make_rephrase_generation_node(model: ChatDatabricks, config: MaudConfig):
     def rephrase_generation_node(
-        state: Union[GraphState, StreamState]
+        state: Union[GraphState, StreamState],
     ) -> Dict[str, Any]:
         """
         Inject the users's question, which may have been previously rephrased

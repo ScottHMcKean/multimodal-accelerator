@@ -8,149 +8,27 @@ The solution accelerator is designed to be run on Databricks. Here are the steps
 
 1. Clone the repository
 
-2. 
+2. Spin up a Databricks cluster with ML Runtime 15.4 or higher
 
-## Development
+3. Start running the notebooks in order
 
-## Deployment
+## Modifications
 
+We have tried to keep environment management simple. We use uv to manage the environment and the requirements. There is a single configuration file that is used to configure the entire solution in the root (`config.yaml`).
 
+### Local Development
+You can also test it locally. We use UV for environment management. Here are linux / macos instructions for setting up a local environment, but here is the [official guide](https://github.com/astral-sh/uv#installation).
 
-# Where the implementations are
-
-Config + location
-What to change for your thingy.
-
-## Development Setup with Poetry
-
-### Quick Start
-
-1. Install Poetry following the [official guide](https://python-poetry.org/docs/#installation)
-2. Set up the environment:
 ```bash
-poetry env use 3.11
-poetry install
-poetry shell  # Activate the virtual environment
+brew install uv
 ```
 
-### Key Poetry Commands
-
-- Add dependency: `poetry add package-name`
-- Add dev dependency: `poetry add --group dev package-name`
-- Run tests: `poetry run pytest`
-- Update dependencies: `poetry update`
-
-### DAB Development
-
-For Data Analysis Bundle (DAB) development:
-
-1. Ensure dependencies are in `pyproject.toml`
-2. Set Python version:
 ```bash
-poetry env use 3.11
-```
-
-3. Activate the virtual environment:
-```bash
-poetry shell
-```
-
-4. Run tests:
-```bash
-poetry run pytest
-poetry run pytest -m "not slow"
-```
-
-5. Update dependencies:
-```bash
-poetry update
-```
-
-6. Install the IPython Kernel for Development
-While inside the Poetry shell, install the IPython kernel for Jupyter:
-```bash 
-python -m ipykernel install --user --name=maud
-```
-
-# Format code with black
-poetry run black maud/ tests/
-
-# Sort imports with isort
-poetry run isort maud/ tests/
-
-# Run flake8 style checks
-poetry run flake8 maud/ tests/
-
-# Run mypy type checking
-poetry run mypy maud/ tests/
-
-## Development Testing of Gradio Interface
-
-1. Run the gradio interface:
-```bash
-poetry run gradio app.py
-```
-
-2. Open the URL in your browser: http://localhost:7860/
-
-## Logging
-
-Using a dedicated logger for each module or class is generally more maintainable and flexible than using the root logger directly. This approach allows you to configure logging behavior (such as log levels and handlers) specifically for different parts of your application. 
-
-## Development
-
-While requirements in a Databricks bundle are generally managed by the requirements.txt file, local development is done using Poetry for convenience and dependency management. This accelerator is designed to be used with DBR 15.4. The key dependency with DBR runtimes is Python - 15.4ML uses 3.11. Otherwise packages can be overridden. 
-
-The develop with Poetry, use
-
-```
-poetry init
-poetry install
-poetry shell
+uv venv .venv  
+source .venv/bin/activate
+uv pip install -r requirements.txt
 ```
 
 ## Deployment
 
-Databricks Bundles are used for deployment into the Databricks Environment.
-
-1. Install the Databricks CLI from https://docs.databricks.com/dev-tools/cli/databricks-cli.html
-
-2. Authenticate to your Databricks workspace, if you have not done so already:
-    ```
-    $ databricks configure
-    ```
-
-3. To deploy a development copy of this project, type:
-    ```
-    $ databricks bundle deploy --target dev
-    ```
-    (Note that "dev" is the default target, so the `--target` parameter
-    is optional here.)
-
-    This deploys everything that's defined for this project.
-    For example, the default template would deploy a job called
-    `[dev yourname] maud_job` to your workspace.
-    You can find that job by opening your workpace and clicking on **Workflows**.
-
-4. Similarly, to deploy a production copy, type:
-   ```
-   $ databricks bundle deploy --target prod
-   ```
-
-   Note that the default job from the template has a schedule that runs every day
-   (defined in resources/maud_job.yml). The schedule
-   is paused when deploying in development mode (see
-   https://docs.databricks.com/dev-tools/bundles/deployment-modes.html).
-
-5. To run a job or pipeline, use the "run" command:
-   ```
-   $ databricks bundle run
-   ```
-
-6. Optionally, install developer tools such as the Databricks extension for Visual Studio Code from
-   https://docs.databricks.com/dev-tools/vscode-ext.html. Or read the "getting started" documentation for
-   **Databricks Connect** for instructions on running the included Python code from a different IDE.
-
-7. For documentation on the Databricks asset bundles format used
-   for this project, and for CI/CD configuration, see
-   https://docs.databricks.com/dev-tools/bundles/index.html.
+The intent of MAUD is to use cheap CPU compute in parallel to process many documents in a batch process.

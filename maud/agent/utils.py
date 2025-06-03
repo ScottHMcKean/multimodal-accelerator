@@ -1,10 +1,9 @@
 from functools import partial
 from typing import List, Dict, Iterator, Union
-from mlflow.types.llm import (
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    ChatChoice,
-    ChatMessage,
+from mlflow.types.agent import (
+    ChatAgentMessage,
+    ChatAgentResponse,
+    ChatContext,
 )
 from langchain_core.messages import MessageLikeRepresentation
 from langchain_core.messages.utils import (
@@ -73,103 +72,19 @@ def graph_state_to_chat_type(state: StateGraph):
 
     return create_flexible_chat_completion_response(answer, history, documents)
 
-
 def create_flexible_chat_completion_response(
     answer: str,
     history: List[Dict[str, str]] = None,
     documents: List[Dict[str, str]] = None,
-) -> Dict:
+) -> ChatAgentResponse:
     """
     Reformat the applications responses to conform to the ChatCompletionResponse
     required by Databricks Mosaic AI Agent Framework
     """
-    return asdict(
-        ChatCompletionResponse(
-            choices=[ChatChoice(message=ChatMessage(role="assistant", content=answer))],
+    return ChatAgentResponse(
+            messages=[ChatAgentMessage(role="assistant", content=answer)],
             custom_outputs={
                 "message_history": history,
                 "documents": documents,
             },
         )
-    )
-
-
-def convert_to_chat_request(
-    messages: List[Dict[str, setattr]]
-) -> ChatCompletionRequest:
-    """
-    Convert a messages to ChatCompletionRequest format. Input messages should conform
-    to the below format.
-
-    [
-      {'role': 'user', 'content': 'What is Apache Spark'},
-      {'role': 'assistant', 'content': 'Apache Spark is a distributed data processing engine.'}
-    ]
-
-    Relavent docs:
-      https://mlflow.org/docs/latest/llms/chat-model-intro/index.html#tutorial-getting-started-with-chatmodel
-      https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatCompletionRequest
-      https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatMessage
-      https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatParams
-      https://mlflow.org/docs/latest/llms/chat-model-intro/index.html#building-a-chatmodel-that-accepts-inference-parameters
-    """
-    chat_messages = []
-    for message in messages:
-        chat_messages.append(
-            ChatMessage(content=message["content"], role=message["role"])
-        )
-
-    chat_request = ChatCompletionRequest(messages=chat_messages)
-    return chat_request.messages
-
-
-def print_generation_and_history(chat_responses: List, i: int, streaming: bool = False):
-    """
-    Accepts a ChatCompletionResponse and and print its contents. This function
-    is used to analyzing model outputs in a notebook before logging the
-    model to MLflow.
-    """
-    if streaming:
-        # Streaming responses can contain two events, where the first event
-        # contains the question rewrite response, and the second event
-        # contains the final generation and message history.
-        multiple_events = True if len(chat_responses[i]) > 1 else False
-        print(f"{chat_responses[i][0].choices[0].delta}\n")
-        if multiple_events:
-            print(f"{chat_responses[i][1].choices[0].delta}\n")
-            print(f"{chat_responses[i][1].custom_outputs}\n")
-        else:
-            print(f"{chat_responses[i][0].custom_outputs}\n")
-    else:
-        print(f"{chat_responses[i].choices[0].message}\n")
-        print(chat_responses[i].custom_outputs)
-
-
-def format_chat_response_for_mlflow(answer, history=None, documents=None, stream=False):
-    """
-    Reformat the LangGraph dictionary output into mlflow chat model types.
-    Streaming output requires the ChatCompletionChunk type; batch (invoke)
-    output requires the ChatCompletionResponse type.
-
-    The models answer to the users question is returned. The messages history,
-    if it exists, is returned as a custom output within the chat message type.
-    """
-    if stream:
-        chat_completion_response = ChatCompletionChunk(
-            choices=[
-                ChatChunkChoice(delta=ChatChoiceDelta(role="assistant", content=answer))
-            ]
-        )
-
-    else:
-        chat_completion_response = ChatCompletionResponse(
-            choices=[ChatChoice(message=ChatMessage(role="assistant", content=answer))]
-        )
-
-    if history:
-        chat_completion_response.custom_outputs = {
-            "message_history": history,
-            "documents": documents,
-        }
-
-    return chat_completion_response

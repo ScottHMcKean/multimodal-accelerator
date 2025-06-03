@@ -11,25 +11,36 @@ class ConfigModel(BaseModel):
     This also provides extensibility.
     https://docs.pydantic.dev/latest/api/config/
     """
-
     model_config = ConfigDict(extra="allow")
 
 
-class ModelParameters(ConfigModel):
-    temperature: float
-    max_tokens: int
+class DataConfig(ConfigModel):
+    catalog: str
+    schema: str
+    raw_docs_vol: str
+    processed_docs_vol: str
+    chunks_table_name: str
+    overwrite: bool = False
 
 
 class ModelConfig(ConfigModel):
     endpoint_name: str
-    parameters: ModelParameters
+    temperature: float
+    max_tokens: int
 
 
-class RetrieverMapping(ConfigModel):
-    chunk_text: str
+class RetrieverConfig(ConfigModel):
+    endpoint_name: str
+    index_name: str
+    embedding_model: str
+    search_type: str
+    score_threshold: float
+    num_results: int
+    text_column: str
     document_uri: str
     primary_key: str
-    other_columns: List[str]
+    chunk_template: str
+    additional_columns: List[str]
 
     @property
     def all_columns(self) -> List[str]:
@@ -38,27 +49,10 @@ class RetrieverMapping(ConfigModel):
         into a single list of all columns.
         """
         return [
-            self.chunk_text,
+            self.text_column,
             self.document_uri,
             self.primary_key,
-        ] + self.other_columns
-
-
-class RetrieverParameters(ConfigModel):
-    k: int = 5
-    query_type: str = "ann"
-
-
-class RetrieverConfig(ConfigModel):
-    tool_name: Optional[str] = None
-    tool_description: Optional[str] = None
-    endpoint_name: str
-    index_name: str
-    embedding_model: str
-    score_threshold: float = 0
-    parameters: RetrieverParameters
-    mapping: RetrieverMapping
-    chunk_template: str = "Passage: {chunk_text}\n Document URI: {document_uri}\n"
+        ] + self.additional_columns
 
 
 class AgentConfig(ConfigModel):
@@ -67,10 +61,19 @@ class AgentConfig(ConfigModel):
     uc_model_name: Optional[str] = None
 
 
+class InterfaceConfig(ConfigModel):
+    title: str
+    description: str
+    example: str
+    serving_endpoint: str
+
+
 class MaudConfig(ConfigModel):
-    agent: AgentConfig
+    data: DataConfig
     model: ModelConfig
     retriever: RetrieverConfig
+    agent: AgentConfig
+    interface: InterfaceConfig
 
 
 def parse_config(mlflow_config: mlflow.models.ModelConfig) -> MaudConfig:

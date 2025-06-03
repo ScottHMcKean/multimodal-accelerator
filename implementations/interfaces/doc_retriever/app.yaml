@@ -1,5 +1,0 @@
-command: ["python", "doc_retriever.py"]
-
-env:
-  - name: "ENVIRONMENT_VARIABLE"
-    valueFrom: "serving-endpoint"
