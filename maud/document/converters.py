@@ -147,14 +147,17 @@ class MAUDConverter(DocumentConverter):
 
         self.result = super().convert(self.input_path, *args, **kwargs)
 
+        try:
+            enabled = self.format_to_options["pdf"].pipeline_options.do_page_description
+        except:
+            enabled = False
+
         self.result.document = ExtendedDocument(
             **self.result.document.model_dump(),
             page_metadata=PageMetadataModel(
                 llm_client=self.llm_client,
                 llm_model=self.llm_model,
-                enabled=self.format_to_options[
-                    "pdf"
-                ].pipeline_options.do_page_description,
+                enabled=enabled,
             ).analyze_pages(self.result.document.pages),
             input_hash=self._input_hash,
         )
