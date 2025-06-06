@@ -19,6 +19,7 @@
 # COMMAND ----------
 
 from mlflow.models import ModelConfig
+
 config = ModelConfig(development_config="config.yaml")
 CATALOG = config.get("data").get("catalog")
 SCHEMA = config.get("data").get("schema")
@@ -43,8 +44,8 @@ from ray.util.spark import setup_ray_cluster, shutdown_ray_cluster
 setup_ray_cluster(
     min_worker_nodes=4,
     max_worker_nodes=4,
-    num_cpus_head_node=4, # Use half our driver for processes too
-    num_cpus_worker_node=8, # Use all worker CPUs
+    num_cpus_head_node=4,  # Use half our driver for processes too
+    num_cpus_worker_node=8,  # Use all worker CPUs
     num_gpus_worker_node=0,
 )
 
@@ -108,6 +109,7 @@ import ray
 output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
 output_dir.mkdir(parents=True, exist_ok=True)
 
+
 @ray.remote(num_cpus=2, num_gpus=0, max_task_retries=3)
 class DocumentProcessor:
     def __init__(self):
@@ -131,9 +133,11 @@ class DocumentProcessor:
             max_tokens=200,
             clf_client=llm_client,  # Reuse same client
             clf_model="dummy_clf",
-            describe_pages=True,
-            describe_tables=True,
-            describe_pictures=True,
+            do_page_description=True,
+            do_picture_description=True,
+            generate_page_images=True,
+            generate_picture_images=True,
+            generate_table_images=True,
         )
 
         converter = MAUDConverter(
@@ -146,7 +150,7 @@ class DocumentProcessor:
             format_options={
                 InputFormat.PDF: PdfFormatOption(
                     pipeline_cls=MAUDPipeline,
-                    pipeline_options=MAUDPipelineOptions(),
+                    pipeline_options=maud_options,
                 )
             },
         )
@@ -154,6 +158,7 @@ class DocumentProcessor:
         converter.convert()
         converter.save_document()
         return converter.chunk()
+
 
 # COMMAND ----------
 
@@ -171,8 +176,8 @@ from pathlib import Path
 file_paths = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf")
 
 # Manual actor sharding due to init process
-# Actors = Total Worker Cores / Cores Per Process 
-num_actors = int(ray.available_resources()['CPU'] / 2)
+# Actors = Total Worker Cores / Cores Per Process
+num_actors = int(ray.available_resources()["CPU"] / 2)
 actors = [DocumentProcessor.options(max_restarts=3).remote() for _ in range(num_actors)]
 
 futures = [
@@ -208,6 +213,7 @@ all_chunks = [res for res in results if res is not None]
 # COMMAND ----------
 
 from itertools import chain
+
 chunks_flat = list(chain.from_iterable(all_chunks))
 chunk_df = pd.DataFrame(chunks_flat)
 
@@ -217,7 +223,7 @@ chunk_df.query()
 
 # COMMAND ----------
 
-:"chunk_df.input_hash = chunk_df.input_hash.astype(str)
+chunk_df.input_hash = chunk_df.input_hash.astype(str)
 chunk_df.query("has_table == True").head(5)
 
 # COMMAND ----------

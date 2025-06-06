@@ -1,0 +1,9 @@
+databricks-agents==0.21.2
+databricks-langchain==0.4.2
+docling==2.36.1
+jupyter==1.0.0
+langgraph==0.4.1
+mlflow==2.22.0
+openai==1.78.1
+pytest==8.3.5
+uv

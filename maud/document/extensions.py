@@ -2,6 +2,9 @@ from openai import OpenAI
 from PIL import Image
 import base64
 from io import BytesIO
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def encode_pil_image_to_base64(pil_image):
@@ -20,25 +23,29 @@ def get_openai_description(
 ):
     assert image_type in ["page", "table", "picture"]
 
-    img_bytes = encode_pil_image_to_base64(image)
+    try:
+        img_bytes = encode_pil_image_to_base64(image)
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Describe the contents of this {image_type}. Keep the response within {max_tokens} words",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{img_bytes}"},
-                    },
-                ],
-            }
-        ],
-        max_tokens=max_tokens,
-    )
-    return response.choices[0].message.content
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Describe the contents of this {image_type}. Keep the response within {max_tokens} words. Do not include any prefix like 'Here is a description of the image' or 'Here is a description of the page'.",
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{img_bytes}"},
+                        },
+                    ],
+                }
+            ],
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        logger.error(f"Error in get_openai_description: {str(e)}", exc_info=True)
+        raise
