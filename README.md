@@ -74,9 +74,10 @@ brew install uv
 ```
 
 ```bash
-uv venv .venv  
+uv venv --python=3.12.3
 source .venv/bin/activate
-uv pip install -r requirements.txt
+uv pip install . # base dependencies
+uv pip install '.[dev]' # development
 ```
 
 ## Authors

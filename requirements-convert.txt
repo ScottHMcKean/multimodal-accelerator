@@ -1,4 +1,0 @@
-docling==2.31.1
-mlflow==2.22.0
-pytest==8.3.5
-openai==1.78.1

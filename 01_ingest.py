@@ -26,15 +26,21 @@
 from mlflow.models import ModelConfig
 import pandas as pd
 
+from maud.utils import get_spark
+
+
+# COMMAND ----------
+
+
 config = ModelConfig(development_config="config.yaml")
 CATALOG = config.get("data").get("catalog")
 SCHEMA = config.get("data").get("schema")
 RAW_DOCS_VOL = config.get("data").get("raw_docs_vol")
 PROCESSED_DOCS_VOL = config.get("data").get("processed_docs_vol")
 
+spark = get_spark()
 doc_df = pd.read_csv("./assets/forge_reports.csv")
 doc_paths = spark.createDataFrame(doc_df)
-display(doc_paths)
 
 # COMMAND ----------
 
@@ -85,6 +91,7 @@ from maud.document.utils import sanitize_filename
 
 RAW_DOC_DIR = f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}"
 
+
 @udf(T.StringType())
 def download_file(url):
     file_name = sanitize_filename(url)
@@ -94,9 +101,12 @@ def download_file(url):
         file.write(response.content)
     return saved_file_path
 
+
 # COMMAND ----------
 
-doc_paths = doc_paths.withColumn("saved_file_path", download_file(F.col("download_link")))
+doc_paths = doc_paths.withColumn(
+    "saved_file_path", download_file(F.col("download_link"))
+)
 
 (
     doc_paths.write.format("delta")
