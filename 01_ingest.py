@@ -9,12 +9,11 @@
 # MAGIC
 # MAGIC The goal here is simply to land the documents and capture their lineage via a clear save path. The `02_convert` Notebook covers the document processing.
 # MAGIC
-# MAGIC This notebook has been tested with serverless and only needs that latest version of MLFLow to load the config.
+# MAGIC This notebook has been tested with serverless v3.
 
 # COMMAND ----------
 
-# MAGIC %pip install mlflow
-# MAGIC %restart_python
+# MAGIC %pip install mlflow>3.1
 
 # COMMAND ----------
 
@@ -28,9 +27,7 @@ import pandas as pd
 
 from maud.utils import get_spark
 
-
 # COMMAND ----------
-
 
 config = ModelConfig(development_config="config.yaml")
 CATALOG = config.get("data").get("catalog")
