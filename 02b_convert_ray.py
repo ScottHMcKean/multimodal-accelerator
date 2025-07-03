@@ -16,7 +16,14 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install -r requirements-convert.txt --quiet
+# MAGIC %pip install uv
+
+# COMMAND ----------
+
+# MAGIC %sh uv pip install .
+
+# COMMAND ----------
+
 # MAGIC %restart_python
 
 # COMMAND ----------
@@ -48,7 +55,7 @@ OVERWRITE = config.get("data").get("overwrite")
 # COMMAND ----------
 
 import ray
-from ray.util.spark import setup_ray_cluster, shutdown_ray_cluster
+from ray.util.spark import setup_ray_cluster
 
 setup_ray_cluster(
     min_worker_nodes=4,
@@ -66,23 +73,11 @@ setup_ray_cluster(
 # COMMAND ----------
 
 from databricks.sdk import WorkspaceClient
-import os
+from maud.utils import get_token
 
-workspace_client = WorkspaceClient()
-workspace_url = workspace_client.config.host
-
-# Check if running in Databricks
-if "DATABRICKS_RUNTIME_VERSION" in os.environ:
-    token = (
-        dbutils.notebook.entry_point.getDbutils()
-        .notebook()
-        .getContext()
-        .apiToken()
-        .get()
-    )
-else:
-    token = workspace_client.config.token
-
+w = WorkspaceClient()
+workspace_url = w.config.host
+token = get_token(w)
 ray.init(runtime_env={"env_vars": {"TOKEN": token, "WORKSPACE_URL": workspace_url}})
 
 # COMMAND ----------
@@ -191,10 +186,6 @@ class DocumentProcessor:
 
 # COMMAND ----------
 
-ray.available_resources()
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ## Execute Processing with Dynamic Scaling
 
@@ -202,10 +193,16 @@ ray.available_resources()
 
 from pathlib import Path
 
-# Get all PDF files
-file_paths = list(Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf"))
+max_files = 4
+file_paths = sorted(
+    Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf"),
+    key=lambda p: p.stat().st_size
+)[:max_files]
 total_files = len(file_paths)
 
+# COMMAND ----------
+
+# Get all PDF files
 logger.info(f"Found {total_files} PDF files to process")
 
 # Create actors with dynamic scaling
@@ -320,3 +317,7 @@ for actor in actors:
 # Shutdown Ray cluster
 ray.shutdown()
 logger.info("Ray cluster shutdown complete")
+
+# COMMAND ----------
+
+
