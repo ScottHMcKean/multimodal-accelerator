@@ -13,7 +13,14 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install -r requirements-convert.txt --quiet
+# MAGIC %pip install uv
+
+# COMMAND ----------
+
+# MAGIC %sh uv pip install .
+
+# COMMAND ----------
+
 # MAGIC %restart_python
 
 # COMMAND ----------
@@ -56,28 +63,24 @@ setup_ray_cluster(
 
 # COMMAND ----------
 
+# use to skip warnings for Ray
+import os
+os.environ["RAY_DEDUP_LOGS_SKIP_REGEX"] = "device pinned memory won't be used"
+
+# COMMAND ----------
+
 from databricks.sdk import WorkspaceClient
 
+from maud.utils import get_token
+
 w = WorkspaceClient()
+workspace_url = w.config.host
+token = get_token(w)
 
-workspace_client = WorkspaceClient()
-workspace_url = workspace_client.config.host
-
-# Check if running in Databricks
-import os
-
-if "DATABRICKS_RUNTIME_VERSION" in os.environ:
-    token = (
-        dbutils.notebook.entry_point.getDbutils()
-        .notebook()
-        .getContext()
-        .apiToken()
-        .get()
+ray.init(runtime_env={"env_vars": {
+    "TOKEN": token, "WORKSPACE_URL": workspace_url
+    }}
     )
-else:
-    token = workspace_client.config.token
-
-ray.init(runtime_env={"env_vars": {"TOKEN": token, "WORKSPACE_URL": workspace_url}})
 
 # COMMAND ----------
 
@@ -103,12 +106,10 @@ from docling.document_converter import PdfFormatOption
 from pathlib import Path
 from maud.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
 from openai import OpenAI
-import pandas as pd
 import ray
 
 output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
 output_dir.mkdir(parents=True, exist_ok=True)
-
 
 @ray.remote(num_cpus=2, num_gpus=0, max_task_retries=3)
 class DocumentProcessor:
@@ -159,11 +160,6 @@ class DocumentProcessor:
         converter.save_document()
         return converter.chunk()
 
-
-# COMMAND ----------
-
-ray.available_resources()
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -174,6 +170,8 @@ ray.available_resources()
 from pathlib import Path
 
 file_paths = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf")
+
+file_paths = list(file_paths)[0:4]
 
 # Manual actor sharding due to init process
 # Actors = Total Worker Cores / Cores Per Process
