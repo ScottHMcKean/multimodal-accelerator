@@ -26,7 +26,9 @@
 # COMMAND ----------
 
 from pathlib import Path
-pdf_input_path = Path('tests/data/wiring_bonding.pdf')
+
+pdf_input_path = Path("tests/data/wiring_bonding.pdf")
+output_dir = Path("data/processed")  # Define output directory
 
 # COMMAND ----------
 
@@ -40,15 +42,19 @@ token = get_token(w)
 
 llm_model = "databricks-claude-3-7-sonnet"
 llm_client = OpenAI(
-  api_key=token,
-  base_url=f"{workspace_url}/serving-endpoints",
+    api_key=token,
+    base_url=f"{workspace_url}/serving-endpoints",
 )
 
 
 # COMMAND ----------
 
 import warnings
-warnings.filterwarnings("ignore", message="'pin_memory' argument is set as true but not supported on MPS now, then device pinned memory won't be used.")
+
+warnings.filterwarnings(
+    "ignore",
+    message="'pin_memory' argument is set as true but not supported on MPS now, then device pinned memory won't be used.",
+)
 
 # COMMAND ----------
 
@@ -73,8 +79,8 @@ maud_options = MAUDPipelineOptions(
     do_page_description=True,
     generate_page_images=True,
     generate_picture_images=True,
-    generate_table_images=True
-    )
+    generate_table_images=True,
+)
 
 # COMMAND ----------
 
@@ -107,3 +113,5 @@ chunks = converter.chunk()
 # COMMAND ----------
 
 pd.DataFrame(chunks)
+
+# COMMAND ----------

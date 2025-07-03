@@ -102,6 +102,21 @@ import pandas as pd
 import ray
 import time
 from typing import Optional
+import warnings
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Suppress PyTorch pin_memory warnings
+warnings.filterwarnings(
+    "ignore",
+    message="'pin_memory' argument is set as true but not supported on MPS now, then device pinned memory won't be used.",
+)
+warnings.filterwarnings(
+    "ignore",
+    message="'pin_memory' argument is set as true but no accelerator is found, then device pinned memory won't be used.",
+)
 
 output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
 output_dir.mkdir(parents=True, exist_ok=True)

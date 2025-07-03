@@ -34,6 +34,16 @@ class ConnectionData(BaseModel):
     object: NodeData
 
 
+class PageMetadataData(BaseModel):
+    """Page metadata from LLM analysis."""
+
+    kind: Literal["page_metadata"] = "page_metadata"
+    description: str
+    processed_at: float
+    model: Optional[str] = None
+    error: Optional[str] = None
+
+
 MetaDataType = Annotated[
     Union[
         PictureClassificationData,
@@ -41,6 +51,7 @@ MetaDataType = Annotated[
         NodeData,
         RelationshipData,
         ConnectionData,
+        PageMetadataData,
     ],
     Field(discriminator="kind"),
 ]

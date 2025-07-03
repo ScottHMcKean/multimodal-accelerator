@@ -83,7 +83,9 @@ def make_picture_chunks(document, image_locations={}):
         captions = [pic.caption_text(document)]
         tables = []
         pictures = [pic.self_ref.split("/")[-1]]
-        text = ", ".join([x.text for x in pic.annotations if x.kind == "description"])
+        text = ", ".join(
+            [x.text for x in pic.annotations if hasattr(x, "text") and x.text]
+        )
 
         picture_image_path = image_locations.get(pic.self_ref.split("/")[-1], "")
 
@@ -159,9 +161,9 @@ def make_page_chunks(document, image_locations={}):
             "headings": headings,
             "captions": captions,
             "chunk_type": "page",
-            "text": v.text,
+            "text": v.description,
             "image_path": page_image_path,
-            "enriched_text": f"""Headings:{", ".join(headings) if headings else ""}\nPage Description:{v.text}""",
+            "enriched_text": f"""Headings:{", ".join(headings) if headings else ""}\nPage Description:{v.description}""",
         }
         page_chunks.append(page_chunk_dict)
 

@@ -8,6 +8,19 @@ import time
 import gc
 from threading import Lock
 import itertools
+import io
+import base64
+import warnings
+
+# Suppress PyTorch pin_memory warnings
+warnings.filterwarnings(
+    "ignore",
+    message="'pin_memory' argument is set as true but not supported on MPS now, then device pinned memory won't be used.",
+)
+warnings.filterwarnings(
+    "ignore",
+    message="'pin_memory' argument is set as true but no accelerator is found, then device pinned memory won't be used.",
+)
 
 from pydantic import ConfigDict, model_validator
 from openai import OpenAI
@@ -32,7 +45,7 @@ from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
 from docling_core.types.doc.document import DocItemLabel
 
 from maud.document.extensions import get_openai_description
-from maud.document.metadata import MetaDataType
+from maud.document.metadata import MetaDataType, PageMetadataData
 from maud.document.chunkers import chunk_maud_document
 
 # Module-level cache for model instances
@@ -77,7 +90,7 @@ class PageMetadataModel:
 
     def analyze_pages(
         self, page_batch: Dict[int, PageItem]
-    ) -> Dict[int, Dict[str, Any]]:
+    ) -> Dict[int, PageMetadataData]:
         """
         Analyze pages in simple batches.
         """
@@ -97,23 +110,23 @@ class PageMetadataModel:
                         description = self._get_description_with_retry(
                             page.image, page_idx
                         )
-                        results[page_idx] = {
-                            "description": description,
-                            "processed_at": time.time(),
-                            "model": self.llm_model,
-                        }
+                        results[page_idx] = PageMetadataData(
+                            description=description,
+                            processed_at=time.time(),
+                            model=self.llm_model,
+                        )
                     else:
-                        results[page_idx] = {
-                            "description": "No image available",
-                            "processed_at": time.time(),
-                        }
+                        results[page_idx] = PageMetadataData(
+                            description="No image available",
+                            processed_at=time.time(),
+                        )
                 except Exception as e:
                     self.logger.error(f"Failed to process page {page_idx}: {e}")
-                    results[page_idx] = {
-                        "description": "Processing failed",
-                        "error": str(e),
-                        "processed_at": time.time(),
-                    }
+                    results[page_idx] = PageMetadataData(
+                        description="Processing failed",
+                        error=str(e),
+                        processed_at=time.time(),
+                    )
 
         return results
 
@@ -137,6 +150,15 @@ class PageMetadataModel:
                 if attempt > 0:
                     time.sleep(2**attempt)  # Simple exponential backoff
 
+                # Convert PIL image to base64 for OpenAI API
+                # Get the PIL image from the ImageRef
+                pil_image = image.pil_image
+
+                # Convert to base64
+                buffered = io.BytesIO()
+                pil_image.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+
                 response = self.llm_client.chat.completions.create(
                     model=self.llm_model,
                     messages=[
@@ -146,7 +168,9 @@ class PageMetadataModel:
                                 {"type": "text", "text": prompt},
                                 {
                                     "type": "image_url",
-                                    "image_url": {"url": image.doclaynet_url},
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{img_str}"
+                                    },
                                 },
                             ],
                         }
@@ -451,7 +475,14 @@ class PictureDescriptionModel(BaseEnrichmentModel):
                 assert isinstance(element, PictureItem)
 
                 description = self._get_description_with_retry(element)
-                element.text = description
+
+                # Add description as annotation instead of setting text field
+                element.annotations.append(
+                    PictureDescriptionData(
+                        provenance="maud_picture_description-1.0.0",
+                        text=description,
+                    )
+                )
 
                 yield element
 
@@ -475,6 +506,15 @@ class PictureDescriptionModel(BaseEnrichmentModel):
                 if attempt > 0:
                     time.sleep(2**attempt)  # Simple exponential backoff
 
+                    # Convert PIL image to base64 for OpenAI API
+                # Get the PIL image from the ImageRef
+                pil_image = element.image.pil_image
+
+                # Convert to base64
+                buffered = io.BytesIO()
+                pil_image.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+
                 response = self.llm_client.chat.completions.create(
                     model=self.llm_model,
                     messages=[
@@ -484,7 +524,9 @@ class PictureDescriptionModel(BaseEnrichmentModel):
                                 {"type": "text", "text": prompt},
                                 {
                                     "type": "image_url",
-                                    "image_url": {"url": element.image.doclaynet_url},
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{img_str}"
+                                    },
                                 },
                             ],
                         }
