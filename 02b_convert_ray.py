@@ -193,7 +193,7 @@ class DocumentProcessor:
 
 from pathlib import Path
 
-max_files = 4
+max_files = 100
 file_paths = sorted(
     Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf"),
     key=lambda p: p.stat().st_size
@@ -272,7 +272,6 @@ logger.info(f"Completed: {completed}, Failed: {failed}")
 # COMMAND ----------
 
 from itertools import chain
-import pandas as pd
 
 # Filter out None results and flatten
 valid_results = [res for res in results if res is not None]
@@ -317,7 +316,3 @@ for actor in actors:
 # Shutdown Ray cluster
 ray.shutdown()
 logger.info("Ray cluster shutdown complete")
-
-# COMMAND ----------
-
-

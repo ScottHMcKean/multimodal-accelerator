@@ -5,8 +5,20 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install mlflow fastparquet
+# MAGIC %pip install uv
+
+# COMMAND ----------
+
+# MAGIC %sh uv pip install .
+
+# COMMAND ----------
+
 # MAGIC %restart_python
+
+# COMMAND ----------
+
+import sys
+sys.path.append(".")
 
 # COMMAND ----------
 
@@ -72,8 +84,19 @@ spark.sql(f"""
 
 # COMMAND ----------
 
+def index_exists(client, vs_endpoint, index_name):
+    try:
+        client.get_index(vs_endpoint, index_name)
+        return True
+    except Exception as e:
+        if "IndexNotFoundException" in str(e):
+            return False
+        else:
+            raise e
+
+# COMMAND ----------
+
 from databricks.vector_search.client import VectorSearchClient
-from maud.agent.retrievers import index_exists
 
 client = VectorSearchClient()
 try:

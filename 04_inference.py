@@ -5,7 +5,14 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install -r requirements-agent.txt --quiet
+# MAGIC %pip install uv
+
+# COMMAND ----------
+
+# MAGIC %sh uv pip install .
+
+# COMMAND ----------
+
 # MAGIC %restart_python
 
 # COMMAND ----------
@@ -13,6 +20,11 @@
 # MAGIC %md
 # MAGIC ## Config
 # MAGIC Parse our config using pydantic types and validation to standardize productionized workflow
+
+# COMMAND ----------
+
+import sys, os
+sys.path.insert(0, os.getcwd())
 
 # COMMAND ----------
 
