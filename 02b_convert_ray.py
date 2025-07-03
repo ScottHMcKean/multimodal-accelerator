@@ -1,7 +1,10 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Convert
-# MAGIC This module processes our bronze documents. It is the most involved and time consuming of the modules. We leverage the Docling framework to abstract away the layout analysis of a document.
+# MAGIC # Convert (Optimized)
+# MAGIC This module processes our bronze documents with key performance fixes:
+# MAGIC - Pre-loaded models in actor constructors
+# MAGIC - Non-blocking result processing
+# MAGIC - Better error handling
 # MAGIC
 # MAGIC In order to make this useful downstream for multimodal vector search, we need three things:
 # MAGIC
@@ -19,12 +22,18 @@
 # COMMAND ----------
 
 from mlflow.models import ModelConfig
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 config = ModelConfig(development_config="config.yaml")
 CATALOG = config.get("data").get("catalog")
 SCHEMA = config.get("data").get("schema")
 RAW_DOCS_VOL = config.get("data").get("raw_docs_vol")
 PROCESSED_DOCS_VOL = config.get("data").get("processed_docs_vol")
+OVERWRITE = config.get("data").get("overwrite")
 
 # COMMAND ----------
 
@@ -57,15 +66,12 @@ setup_ray_cluster(
 # COMMAND ----------
 
 from databricks.sdk import WorkspaceClient
-
-w = WorkspaceClient()
+import os
 
 workspace_client = WorkspaceClient()
 workspace_url = workspace_client.config.host
 
 # Check if running in Databricks
-import os
-
 if "DATABRICKS_RUNTIME_VERSION" in os.environ:
     token = (
         dbutils.notebook.entry_point.getDbutils()
@@ -82,19 +88,8 @@ ray.init(runtime_env={"env_vars": {"TOKEN": token, "WORKSPACE_URL": workspace_ur
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Ray MAUD Docling Converter
-# MAGIC The MAUD acclerator extends Docling in order to process the tables, pages, and figures as well as the document hierarchy. We setup the whole converter pipeline within a single object
-
-# COMMAND ----------
-
-from mlflow.models import ModelConfig
-import pandas as pd
-
-config = ModelConfig(development_config="config.yaml")
-CATALOG = config.get("data").get("catalog")
-SCHEMA = config.get("data").get("schema")
-PROCESSED_DOCS_VOL = config.get("data").get("processed_docs_vol")
-OVERWRITE = config.get("data").get("overwrite")
+# MAGIC ## Ray MAUD Docling Converter (Optimized)
+# MAGIC The MAUD acclerator extends Docling in order to process the tables, pages, and figures as well as the document hierarchy. We setup the whole converter pipeline within a single object with model pre-loading for better performance.
 
 # COMMAND ----------
 
@@ -105,33 +100,32 @@ from maud.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPip
 from openai import OpenAI
 import pandas as pd
 import ray
+import time
+from typing import Optional
 
 output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 
-@ray.remote(num_cpus=2, num_gpus=0, max_task_retries=3)
+@ray.remote(num_cpus=2, num_gpus=0, max_task_retries=3, max_restarts=2)
 class DocumentProcessor:
-    def __init__(self):
-        """Empty constructor - no non-serializable objects here"""
-        pass
+    def __init__(self, workspace_url: str, token: str):
+        """Pre-load models and initialize clients in constructor"""
+        self.workspace_url = workspace_url
+        self.token = token
 
-    def process_file(self, file_path: str, workspace_url: str, token: str):
-        """All initialization happens within method execution"""
-        # Worker-side path creation
-        output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
-
-        # Initialize client on worker
-        llm_client = OpenAI(
+        # Pre-initialize OpenAI client
+        self.llm_client = OpenAI(
             api_key=token,
             base_url=f"{workspace_url}/serving-endpoints",
         )
 
-        maud_options = MAUDPipelineOptions(
-            llm_client=llm_client,
+        # Pre-configure MAUD options
+        self.maud_options = MAUDPipelineOptions(
+            llm_client=self.llm_client,
             llm_model="databricks-claude-3-7-sonnet",
             max_tokens=200,
-            clf_client=llm_client,  # Reuse same client
+            clf_client=self.llm_client,
             clf_model="dummy_clf",
             do_page_description=True,
             do_picture_description=True,
@@ -140,24 +134,44 @@ class DocumentProcessor:
             generate_table_images=True,
         )
 
-        converter = MAUDConverter(
-            input_path=file_path,
-            output_dir=output_dir,
-            llm_client=maud_options.llm_client,
-            llm_model=maud_options.llm_model,
-            max_tokens=maud_options.max_tokens,
-            overwrite=OVERWRITE,
-            format_options={
-                InputFormat.PDF: PdfFormatOption(
-                    pipeline_cls=MAUDPipeline,
-                    pipeline_options=maud_options,
-                )
-            },
-        )
+        # Pre-load models by creating pipeline
+        try:
+            self.pipeline = MAUDPipeline(self.maud_options)
+            logger.info("Models pre-loaded successfully")
+        except Exception as e:
+            logger.warning(f"Model pre-loading failed: {e}")
+            self.pipeline = None
 
-        converter.convert()
-        converter.save_document()
-        return converter.chunk()
+    def process_file(self, file_path: str) -> Optional[list]:
+        """Process a single file"""
+        try:
+            output_dir = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}")
+
+            converter = MAUDConverter(
+                input_path=file_path,
+                output_dir=output_dir,
+                llm_client=self.llm_client,
+                llm_model=self.maud_options.llm_model,
+                max_tokens=self.maud_options.max_tokens,
+                overwrite=OVERWRITE,
+                format_options={
+                    InputFormat.PDF: PdfFormatOption(
+                        pipeline_cls=MAUDPipeline,
+                        pipeline_options=self.maud_options,
+                    )
+                },
+            )
+
+            converter.convert()
+            converter.save_document()
+            chunks = converter.chunk()
+
+            logger.info(f"Successfully processed {file_path}")
+            return chunks
+
+        except Exception as e:
+            logger.error(f"Failed to process {file_path}: {str(e)}")
+            return None
 
 
 # COMMAND ----------
@@ -167,42 +181,75 @@ ray.available_resources()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Here we setup our document parsing
+# MAGIC ## Execute Processing with Dynamic Scaling
 
 # COMMAND ----------
 
 from pathlib import Path
 
-file_paths = Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf")
+# Get all PDF files
+file_paths = list(Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf"))
+total_files = len(file_paths)
 
-# Manual actor sharding due to init process
-# Actors = Total Worker Cores / Cores Per Process
-num_actors = int(ray.available_resources()["CPU"] / 2)
-actors = [DocumentProcessor.options(max_restarts=3).remote() for _ in range(num_actors)]
+logger.info(f"Found {total_files} PDF files to process")
 
-futures = [
-    actors[i % num_actors].process_file.remote(path, workspace_url, token)
-    for i, path in enumerate(file_paths)
+# Create actors with dynamic scaling
+available_cpus = ray.available_resources().get("CPU", 8)
+num_actors = max(2, min(total_files, int(available_cpus // 2)))
+
+logger.info(f"Creating {num_actors} actors")
+
+actors = [
+    DocumentProcessor.options(max_restarts=2).remote(workspace_url, token)
+    for _ in range(num_actors)
 ]
+
+# Submit all tasks
+futures = []
+for i, file_path in enumerate(file_paths):
+    actor_idx = i % num_actors
+    future = actors[actor_idx].process_file.remote(str(file_path))
+    futures.append(future)
+
+logger.info(f"Submitted {len(futures)} processing tasks")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC This chunk executes the document parsing - watch it run in the Ray Dashboard!
+# MAGIC ## Non-blocking Result Collection
+# MAGIC This chunk executes the document parsing with non-blocking result collection - watch it run in the Ray Dashboard!
 
 # COMMAND ----------
 
 from ray.exceptions import RayTaskError
+import time
 
 results = []
-for future in futures:
-    try:
-        results.append(ray.get(future))
-    except RayTaskError as e:
-        print(f"Task failed: {e}")
-        results.append(None)  # or log error details
+completed = 0
+failed = 0
 
-all_chunks = [res for res in results if res is not None]
+# Process results as they complete (non-blocking)
+while futures:
+    # Wait for at least one task to complete
+    ready, futures = ray.wait(futures, num_returns=1, timeout=30)
+
+    # Process completed tasks
+    for future in ready:
+        try:
+            result = ray.get(future)
+            if result is not None:
+                results.append(result)
+                completed += 1
+            else:
+                failed += 1
+        except RayTaskError as e:
+            logger.error(f"Task failed: {e}")
+            failed += 1
+            results.append(None)
+
+    logger.info(f"Progress: {completed + failed}/{total_files} files processed")
+
+logger.info(f"Completed: {completed}, Failed: {failed}")
 
 # COMMAND ----------
 
@@ -213,23 +260,48 @@ all_chunks = [res for res in results if res is not None]
 # COMMAND ----------
 
 from itertools import chain
+import pandas as pd
 
-chunks_flat = list(chain.from_iterable(all_chunks))
-chunk_df = pd.DataFrame(chunks_flat)
+# Filter out None results and flatten
+valid_results = [res for res in results if res is not None]
+if valid_results:
+    chunks_flat = list(chain.from_iterable(valid_results))
+
+    logger.info(f"Creating DataFrame from {len(chunks_flat)} chunks")
+    chunk_df = pd.DataFrame(chunks_flat)
+
+    # Optimize data types
+    chunk_df.input_hash = chunk_df.input_hash.astype(str)
+
+    # Show sample results
+    if "has_table" in chunk_df.columns:
+        table_chunks = chunk_df.query("has_table == True")
+        logger.info(f"Found {len(table_chunks)} table chunks")
+        display(table_chunks.head(5) if len(table_chunks) > 0 else pd.DataFrame())
+
+    # Save results
+    output_path = f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}/chunks.parquet"
+    chunk_df.to_parquet(output_path, index=False)
+
+    logger.info(f"Saved {len(chunk_df)} chunks to {output_path}")
+
+else:
+    logger.warning("No valid results to save")
 
 # COMMAND ----------
 
-chunk_df.query()
+# MAGIC %md
+# MAGIC ## Cleanup
 
 # COMMAND ----------
 
-chunk_df.input_hash = chunk_df.input_hash.astype(str)
-chunk_df.query("has_table == True").head(5)
+# Cleanup actors
+for actor in actors:
+    try:
+        ray.kill(actor)
+    except Exception:
+        pass
 
-# COMMAND ----------
-
-chunk_df.to_parquet(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}/chunks.parquet")
-
-# COMMAND ----------
-
+# Shutdown Ray cluster
 ray.shutdown()
+logger.info("Ray cluster shutdown complete")
