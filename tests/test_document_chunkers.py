@@ -1,7 +1,7 @@
 """Simplified tests for document chunking functionality - testing only essentials."""
 
 import pytest
-from maud.document.chunkers import chunk_schema
+from src.document.chunkers import chunk_schema
 
 
 @pytest.mark.unit
@@ -43,7 +43,7 @@ class TestChunkerImports:
 
     def test_chunker_functions_import(self):
         """Test that main chunker functions can be imported."""
-        from maud.document.chunkers import (
+        from src.document.chunkers import (
             make_table_chunks,
             make_picture_chunks,
             make_page_chunks,
@@ -61,7 +61,7 @@ class TestChunkerImports:
 
     def test_hybrid_chunker_import(self):
         """Test that HybridChunker can be imported."""
-        from maud.document.chunkers import HybridChunker
+        from src.document.chunkers import HybridChunker
 
         assert HybridChunker is not None
 
@@ -73,7 +73,7 @@ class TestBasicChunkingFunctionality:
 
     def test_chunking_functions_are_callable(self):
         """Test that chunking functions are callable."""
-        from maud.document.chunkers import (
+        from src.document.chunkers import (
             make_table_chunks,
             make_picture_chunks,
             make_page_chunks,

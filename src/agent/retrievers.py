@@ -1,4 +1,4 @@
-from maud.agent.config import MaudConfig
+from src.agent.config import MaudConfig
 from databricks_langchain.vectorstores import DatabricksVectorSearch
 from langchain_core.vectorstores import VectorStoreRetriever
 
@@ -6,7 +6,7 @@ from langchain_core.vectorstores import VectorStoreRetriever
 def get_vector_retriever(config: MaudConfig) -> VectorStoreRetriever:
     vector_search = DatabricksVectorSearch(
         index_name=f"{config.data.catalog}.{config.data.schema}.{config.retriever.index_name}",
-        columns=config.retriever.all_columns
+        columns=config.retriever.all_columns,
     )
 
     retriever = vector_search.as_retriever(

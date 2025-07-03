@@ -33,9 +33,8 @@ input_example = {
 
 from mlflow.deployments import get_deploy_client
 
-result = get_deploy_client('databricks').predict(
-    endpoint="agents_shm-multimodal-agent_langgraph",
-    inputs=input_example
+result = get_deploy_client("databricks").predict(
+    endpoint="agents_shm-multimodal-agent_langgraph", inputs=input_example
 )
 
 # COMMAND ----------
@@ -55,7 +54,8 @@ result = get_deploy_client('databricks').predict(
 # COMMAND ----------
 
 from databricks.sdk import WorkspaceClient
-from maud.interface.create import create_app
+from src.interface.create import create_app
+
 w = WorkspaceClient()
 
 # COMMAND ----------

@@ -11,13 +11,13 @@ class TestBasicDocumentProcessing:
 
     def test_document_converter_import(self):
         """Test that document converter can be imported."""
-        from maud.document.converters import MAUDConverter
+        from src.document.converters import MAUDConverter
 
         assert MAUDConverter is not None
 
     def test_document_processing_with_sample_files(self, sample_docx_path):
         """Test basic document processing with sample files."""
-        from maud.document.converters import MAUDConverter
+        from src.document.converters import MAUDConverter
         from tempfile import TemporaryDirectory
 
         with TemporaryDirectory() as temp_dir:
@@ -33,7 +33,7 @@ class TestBasicDocumentProcessing:
         self, sample_docx_path, sample_xlsx_path, sample_pptx_path
     ):
         """Test that converters can be created for different file types."""
-        from maud.document.converters import MAUDConverter
+        from src.document.converters import MAUDConverter
         from tempfile import TemporaryDirectory
 
         file_paths = [sample_docx_path, sample_xlsx_path, sample_pptx_path]
@@ -54,8 +54,8 @@ class TestModuleIntegration:
 
     def test_agent_document_module_integration(self):
         """Test that agent and document modules can be imported together."""
-        from maud.agent import config, functions, nodes
-        from maud.document import converters, chunkers
+        from src.agent import config, functions, nodes
+        from src.document import converters, chunkers
 
         # Test that modules don't conflict
         assert config is not None
@@ -66,7 +66,7 @@ class TestModuleIntegration:
 
     def test_interface_module_integration(self):
         """Test that interface modules can be imported."""
-        from maud.interface import config
+        from src.interface import config
 
         assert config is not None
 
@@ -78,7 +78,7 @@ class TestBasicErrorHandling:
 
     def test_invalid_file_handling(self):
         """Test handling of invalid input files."""
-        from maud.document.converters import MAUDConverter
+        from src.document.converters import MAUDConverter
         from pathlib import Path
         from tempfile import TemporaryDirectory
 
@@ -100,14 +100,14 @@ class TestBasicErrorHandling:
         """Test that module imports handle missing dependencies gracefully."""
         # Test that basic imports work
         try:
-            from maud.agent import config
+            from src.agent import config
 
             assert config is not None
         except ImportError:
             pytest.skip("Agent config module not available")
 
         try:
-            from maud.document import converters
+            from src.document import converters
 
             assert converters is not None
         except ImportError:
@@ -121,7 +121,7 @@ class TestDataConsistency:
 
     def test_chunk_data_structure_consistency(self):
         """Test that chunk data structure is consistent."""
-        from maud.document.chunkers import chunk_schema
+        from src.document.chunkers import chunk_schema
 
         # Test that schema is consistently defined
         assert chunk_schema is not None
@@ -132,7 +132,7 @@ class TestDataConsistency:
 
     def test_config_structure_consistency(self):
         """Test that config structures are consistent."""
-        from maud.agent.config import MaudConfig
+        from src.agent.config import MaudConfig
 
         # Test that config classes exist and are properly structured
         assert MaudConfig is not None
@@ -149,16 +149,16 @@ class TestSystemStability:
         """Test that core modules can be imported consistently."""
         # Test multiple imports of the same modules
         for _ in range(3):
-            from maud.agent import config
-            from maud.document import chunkers
+            from src.agent import config
+            from src.document import chunkers
 
             assert config is not None
             assert chunkers is not None
 
     def test_basic_functionality_stability(self):
         """Test that basic functionality remains stable."""
-        from maud.agent.functions import add
-        from maud.document.chunkers import chunk_schema
+        from src.agent.functions import add
+        from src.document.chunkers import chunk_schema
 
         # Test that basic functions work consistently
         assert add(2, 3) == 5

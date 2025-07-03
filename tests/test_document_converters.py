@@ -7,8 +7,8 @@ import pandas as pd
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
 
-from maud.document.converters import MAUDConverter
-from maud.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
+from src.document.converters import MAUDConverter
+from src.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
 
 
 @pytest.fixture(scope="session")

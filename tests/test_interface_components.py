@@ -11,21 +11,21 @@ class TestInterfaceModules:
 
     def test_interface_config_import(self):
         """Test that interface config can be imported."""
-        from maud.interface import config
+        from src.interface import config
 
         assert config is not None
 
     def test_interface_modules_import(self):
         """Test that interface modules can be imported."""
         try:
-            from maud.interface import image_loader
+            from src.interface import image_loader
 
             assert image_loader is not None
         except ImportError:
             pytest.skip("Image loader module not available")
 
         try:
-            from maud.interface import highlighting
+            from src.interface import highlighting
 
             assert highlighting is not None
         except ImportError:
@@ -42,7 +42,7 @@ class TestBasicInterfaceFunctionality:
         from pathlib import Path
 
         # Check if requirements file exists
-        req_file = Path("maud/interface/requirements.txt")
+        req_file = Path("src/interface/requirements.txt")
         if req_file.exists():
             assert req_file.is_file()
             # Verify it's not empty
@@ -55,14 +55,14 @@ class TestBasicInterfaceFunctionality:
     def test_interface_functions_existence(self):
         """Test that interface functions exist when modules are available."""
         try:
-            from maud.interface.image_loader import load_image
+            from src.interface.image_loader import load_image
 
             assert callable(load_image)
         except ImportError:
             pytest.skip("Image loader function not available")
 
         try:
-            from maud.interface.highlighting import highlight_text
+            from src.interface.highlighting import highlight_text
 
             assert callable(highlight_text)
         except ImportError:
@@ -77,7 +77,7 @@ class TestInterfaceErrorHandling:
     def test_image_loader_error_handling(self):
         """Test error handling in image loading."""
         try:
-            from maud.interface.image_loader import load_image
+            from src.interface.image_loader import load_image
 
             # Test with invalid path
             invalid_path = Path("nonexistent_image.png")
@@ -96,7 +96,7 @@ class TestInterfaceErrorHandling:
 
     def test_module_structure_consistency(self):
         """Test that interface module has expected structure."""
-        from maud.interface import config
+        from src.interface import config
 
         # Test basic module structure
         assert config is not None
@@ -124,7 +124,7 @@ class TestInterfaceIntegration:
 
     def test_interface_config_integration(self):
         """Test that interface config integrates with other components."""
-        from maud.interface.config import InterfaceConfig
+        from src.interface.config import InterfaceConfig
 
         # Test that config class can be referenced
         assert InterfaceConfig is not None

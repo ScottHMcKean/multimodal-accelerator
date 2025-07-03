@@ -1,7 +1,7 @@
 from typing import TypedDict, Annotated, List, Union
 from operator import add
 from langchain_core.documents.base import Document
-from maud.agent.config import MaudConfig
+from src.agent.config import MaudConfig
 
 
 class StreamState(TypedDict):

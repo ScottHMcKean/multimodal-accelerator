@@ -73,7 +73,7 @@ setup_ray_cluster(
 # COMMAND ----------
 
 from databricks.sdk import WorkspaceClient
-from maud.utils import get_token
+from src.utils import get_token
 
 w = WorkspaceClient()
 workspace_url = w.config.host
@@ -91,7 +91,7 @@ ray.init(runtime_env={"env_vars": {"TOKEN": token, "WORKSPACE_URL": workspace_ur
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
 from pathlib import Path
-from maud.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
+from src.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
 from openai import OpenAI
 import pandas as pd
 import ray
@@ -196,7 +196,7 @@ from pathlib import Path
 max_files = 100
 file_paths = sorted(
     Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf"),
-    key=lambda p: p.stat().st_size
+    key=lambda p: p.stat().st_size,
 )[:max_files]
 total_files = len(file_paths)
 

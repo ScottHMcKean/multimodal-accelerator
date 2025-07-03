@@ -1,18 +1,9 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "maud"
 version = "0.1.0"
 description = "Multimodal Analysis of Unstructured Documents"
-authors = [
-    {name = "Scott McKean", email = "scott.mckean@databricks.com"}
-]
-readme = "README.md"
 requires-python = "==3.12.3"
 
-# Base dependencies
 dependencies = [
     "databricks-connect==16.3.2",
     "databricks-langchain>=0.2.0",
@@ -21,6 +12,8 @@ dependencies = [
     "langgraph>=0.5.0",
     "docling>=2.39.0",
     "openai>=1.93.0",
+    "torch==2.3.1+cpu",
+    "torchvision==0.18.1+cpu",
 ]
 
 [project.optional-dependencies]
@@ -35,11 +28,7 @@ dev = [
     "mypy>=1.5.0",
     "jupyter>=1.0.0",
     "ipykernel>=6.0.0",
-]
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["maud*"]
+  ]
 
 [tool.ruff]
 line-length = 88
@@ -49,8 +38,12 @@ target-version = "py312"
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = ["E501"]
 
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
 [tool.pytest.ini_options]
-pythonpath = "maud"
+pythonpath = "src"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
@@ -60,7 +53,7 @@ addopts = [
     "--strict-config",
     "--verbose",
     "--tb=short",
-    "--cov=maud",
+    "--cov=src",
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
     "--cov-report=xml",
@@ -80,7 +73,7 @@ markers = [
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-source = ["maud"]
+source = ["src"]
 omit = [
     "*/tests/*",
     "*/test_*",

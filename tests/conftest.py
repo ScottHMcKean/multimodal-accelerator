@@ -150,7 +150,7 @@ def mock_mlflow():
 @pytest.fixture
 def fast_pipeline_options():
     """Pipeline options optimized for fast testing."""
-    from maud.document.converters import MAUDPipelineOptions
+    from src.document.converters import MAUDPipelineOptions
 
     return MAUDPipelineOptions(
         generate_page_images=False,  # Skip image generation for speed
@@ -166,7 +166,7 @@ def fast_pipeline_options():
 @pytest.fixture
 def comprehensive_pipeline_options():
     """Full pipeline options for comprehensive testing."""
-    from maud.document.converters import MAUDPipelineOptions
+    from src.document.converters import MAUDPipelineOptions
 
     return MAUDPipelineOptions(
         generate_page_images=True,

@@ -24,13 +24,15 @@
 # COMMAND ----------
 
 import sys, os
+
 sys.path.insert(0, os.getcwd())
 
 # COMMAND ----------
 
 # load config as both an mlflow object and a pydantic class
 import mlflow
-from maud.agent.config import parse_config
+from src.agent.config import parse_config
+
 mlflow_config = mlflow.models.ModelConfig(development_config="config.yaml")
 maud_config = parse_config(mlflow_config)
 
@@ -43,14 +45,15 @@ maud_config = parse_config(mlflow_config)
 # COMMAND ----------
 
 # API Interfaces
-from maud.agent.retrievers import get_vector_retriever
+from src.agent.retrievers import get_vector_retriever
 from databricks_langchain import ChatDatabricks
+
 retriever = get_vector_retriever(maud_config)
 model = ChatDatabricks(endpoint=maud_config.model.endpoint_name)
 
 # Nodes
-from maud.agent.states import get_state
-from maud.agent.nodes import (
+from src.agent.states import get_state
+from src.agent.nodes import (
     make_query_vector_database_node,
     make_context_generation_node,
 )
@@ -69,7 +72,7 @@ context_generation_node = make_context_generation_node(model, maud_config)
 # Graph
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableLambda
-from maud.agent.utils import graph_state_to_chat_type
+from src.agent.utils import graph_state_to_chat_type
 
 workflow = StateGraph(state)
 workflow.add_node("retrieve", retriever_node)
@@ -103,8 +106,8 @@ result = app.invoke(input_example)
 
 # COMMAND ----------
 
-for msg in app.stream(input_example, stream_mode='updates'):
-  print(msg)
+for msg in app.stream(input_example, stream_mode="updates"):
+    print(msg)
 
 # COMMAND ----------
 
@@ -115,15 +118,17 @@ for msg in app.stream(input_example, stream_mode='updates'):
 
 from importlib import reload
 import agent
+
 reload(agent)
 from agent import MAUDAgent
+
 AGENT = MAUDAgent(app)
 AGENT.predict(input_example)
 
 # COMMAND ----------
 
 for msg in AGENT.predict_stream(input_example):
-  print(msg)
+    print(msg)
 
 # COMMAND ----------
 
@@ -163,7 +168,9 @@ from mlflow.models.resources import (
 
 databricks_resources = [
     DatabricksServingEndpoint(endpoint_name=maud_config.model.endpoint_name),
-    DatabricksVectorSearchIndex(index_name=f"{maud_config.data.catalog}.{maud_config.data.schema}.{maud_config.retriever.index_name}"),
+    DatabricksVectorSearchIndex(
+        index_name=f"{maud_config.data.catalog}.{maud_config.data.schema}.{maud_config.retriever.index_name}"
+    ),
 ]
 
 # COMMAND ----------
@@ -181,13 +188,16 @@ databricks_resources = [
 
 # Log the model
 from pkg_resources import get_distribution
+
 with mlflow.start_run():
     logged_agent_info = mlflow.pyfunc.log_model(
         python_model="agent.py",
         model_config="config.yaml",
         artifact_path="agent",
-        code_paths=["maud"],
-        extra_pip_requirements=[f"databricks-connect=={get_distribution('databricks-connect').version}"],
+        code_paths=["src"],
+        extra_pip_requirements=[
+            f"databricks-connect=={get_distribution('databricks-connect').version}"
+        ],
         registered_model_name=maud_config.agent.uc_model_name,
         input_example=input_example,
         resources=databricks_resources,

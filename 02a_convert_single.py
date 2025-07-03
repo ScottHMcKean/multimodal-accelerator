@@ -34,7 +34,7 @@ output_dir = Path("data/processed")  # Define output directory
 
 from databricks.sdk import WorkspaceClient
 from openai import OpenAI
-from maud.utils import get_token
+from src.utils import get_token
 
 w = WorkspaceClient()
 workspace_url = w.config.host
@@ -66,7 +66,7 @@ warnings.filterwarnings(
 
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import PdfFormatOption
-from maud.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
+from src.document.converters import MAUDPipelineOptions, MAUDConverter, MAUDPipeline
 import pandas as pd
 
 maud_options = MAUDPipelineOptions(

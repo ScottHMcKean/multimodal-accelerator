@@ -44,9 +44,9 @@ from docling.models.base_model import BaseEnrichmentModel
 from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
 from docling_core.types.doc.document import DocItemLabel
 
-from maud.document.extensions import get_openai_description
-from maud.document.metadata import MetaDataType, PageMetadataData
-from maud.document.chunkers import chunk_maud_document
+from src.document.extensions import get_openai_description
+from src.document.metadata import MetaDataType, PageMetadataData
+from src.document.chunkers import chunk_maud_document
 
 # Module-level cache for model instances
 _MODEL_CACHE = {}

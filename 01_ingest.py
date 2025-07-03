@@ -25,7 +25,7 @@
 from mlflow.models import ModelConfig
 import pandas as pd
 
-from maud.utils import get_spark
+from src.utils import get_spark
 
 # COMMAND ----------
 
@@ -84,7 +84,7 @@ for vol_name in [RAW_DOCS_VOL, PROCESSED_DOCS_VOL]:
 import pyspark.sql.functions as F
 import pyspark.sql.types as T
 import requests
-from maud.document.utils import sanitize_filename
+from src.document.utils import sanitize_filename
 
 RAW_DOC_DIR = f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}"
 
