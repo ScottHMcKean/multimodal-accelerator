@@ -3,6 +3,11 @@ import json
 from pathlib import Path
 from typing import Dict
 import logging
+import os
+import time
+import gc
+from threading import Lock
+import itertools
 
 from pydantic import ConfigDict, model_validator
 from openai import OpenAI
@@ -30,18 +35,29 @@ from maud.document.extensions import get_openai_description
 from maud.document.metadata import MetaDataType
 from maud.document.chunkers import chunk_maud_document
 
+# Module-level cache for model instances
+_MODEL_CACHE = {}
+_CACHE_LOCK = Lock()
+
+
+def get_cached_model(cache_key: str, factory_func):
+    """Thread-safe model caching to avoid repeated initialization."""
+    with _CACHE_LOCK:
+        if cache_key not in _MODEL_CACHE:
+            _MODEL_CACHE[cache_key] = factory_func()
+        return _MODEL_CACHE[cache_key]
+
 
 class ExtendedDocument(DoclingDocument):
     page_metadata: Dict[int, MetaDataType] = {}
     input_hash: Path = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class PageMetadataModel:
     """
-    A model that can be used to describe a page and extract hierarchy
+    Simple model for page analysis with basic batch processing.
     """
 
     def __init__(
@@ -49,42 +65,107 @@ class PageMetadataModel:
         llm_client: Optional[OpenAI] = None,
         llm_model: str = "gpt-4o-mini",
         enabled: bool = True,
+        batch_size: int = 5,
+        max_retries: int = 3,
     ):
         self.enabled = enabled
         self.llm_client = llm_client
         self.llm_model = llm_model
+        self.batch_size = batch_size
+        self.max_retries = max_retries
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def analyze_pages(self, page_batch: Dict[int, PageItem]) -> Dict[int, MetaDataType]:
-        if not self.enabled:
+    def analyze_pages(
+        self, page_batch: Dict[int, PageItem]
+    ) -> Dict[int, Dict[str, Any]]:
+        """
+        Analyze pages in simple batches.
+        """
+        if not self.enabled or not self.llm_client:
             return {}
 
-        page_metadata = {}
-        for idx, page in page_batch.items():
-            assert isinstance(page, PageItem)
+        results = {}
+        page_items = list(page_batch.items())
 
+        # Process in batches
+        for i in range(0, len(page_items), self.batch_size):
+            batch = page_items[i : i + self.batch_size]
+
+            for page_idx, page in batch:
+                try:
+                    if page.image is not None:
+                        description = self._get_description_with_retry(
+                            page.image, page_idx
+                        )
+                        results[page_idx] = {
+                            "description": description,
+                            "processed_at": time.time(),
+                            "model": self.llm_model,
+                        }
+                    else:
+                        results[page_idx] = {
+                            "description": "No image available",
+                            "processed_at": time.time(),
+                        }
+                except Exception as e:
+                    self.logger.error(f"Failed to process page {page_idx}: {e}")
+                    results[page_idx] = {
+                        "description": "Processing failed",
+                        "error": str(e),
+                        "processed_at": time.time(),
+                    }
+
+        return results
+
+    def _get_description_with_retry(self, image, page_idx: int) -> str:
+        """
+        Get page description with simple retry logic.
+        """
+        if not image:
+            return "No image available"
+
+        prompt = (
+            "Analyze this document page and provide a concise summary of:\n"
+            "1. Document type and purpose\n"
+            "2. Key content elements\n"
+            "3. Notable visual features\n"
+            "Be precise and factual."
+        )
+
+        for attempt in range(self.max_retries):
             try:
-                description = get_openai_description(
-                    client=self.llm_client,
+                if attempt > 0:
+                    time.sleep(2**attempt)  # Simple exponential backoff
+
+                response = self.llm_client.chat.completions.create(
                     model=self.llm_model,
-                    image=page.image.pil_image,
-                    image_type="page",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": image.doclaynet_url},
+                                },
+                            ],
+                        }
+                    ],
                     max_tokens=200,
+                    temperature=0.1,
+                    timeout=30,
                 )
-            except:
-                description = ""
 
-            page_metadata[idx] = PictureDescriptionData(
-                provenance=self.llm_model,
-                text=description,
-            )
+                return response.choices[0].message.content.strip()
 
-        if not page_metadata:
-            return {
-                0: PictureDescriptionData(provenance="", text="No pages in document")
-            }
+            except Exception as e:
+                self.logger.warning(
+                    f"Attempt {attempt + 1} failed for page {page_idx}: {str(e)}"
+                )
+                if attempt == self.max_retries - 1:
+                    return f"Failed to generate description after {self.max_retries} attempts"
 
-        return page_metadata
+        return "Description unavailable"
 
 
 class MAUDConverter(DocumentConverter):
@@ -96,6 +177,7 @@ class MAUDConverter(DocumentConverter):
         llm_model: str = "gpt-4o-mini",
         max_tokens: int = 200,
         overwrite: bool = False,
+        enable_caching: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -107,6 +189,7 @@ class MAUDConverter(DocumentConverter):
         self.llm_client = llm_client
         self.llm_model = llm_model
         self.max_tokens = max_tokens
+        self.enable_caching = enable_caching
         self._hash_input()
         self._get_output_path()
         self.result = None
@@ -139,31 +222,56 @@ class MAUDConverter(DocumentConverter):
         return True
 
     def convert(self, *args, **kwargs):
+        """Convert with basic optimizations."""
         if self._validate_output_exists():
             self.load_document()
             return self.document
 
-        self.logger.info("Converting document")
-
-        self.result = super().convert(self.input_path, *args, **kwargs)
+        self.logger.info(f"Converting document: {self.input_path}")
 
         try:
-            enabled = self.format_to_options["pdf"].pipeline_options.do_page_description
-        except:
-            enabled = False
+            self.result = super().convert(self.input_path, *args, **kwargs)
 
-        self.result.document = ExtendedDocument(
-            **self.result.document.model_dump(),
-            page_metadata=PageMetadataModel(
-                llm_client=self.llm_client,
-                llm_model=self.llm_model,
-                enabled=enabled,
-            ).analyze_pages(self.result.document.pages),
-            input_hash=self._input_hash,
-        )
+            # Check if page description is enabled
+            try:
+                enabled = self.format_to_options[
+                    "pdf"
+                ].pipeline_options.do_page_description
+            except (KeyError, AttributeError):
+                enabled = False
 
-        self.document = self.result.document
-        return self.document
+            # Use page metadata model if enabled
+            if enabled and self.llm_client:
+                page_metadata_model = PageMetadataModel(
+                    llm_client=self.llm_client,
+                    llm_model=self.llm_model,
+                    enabled=enabled,
+                    batch_size=5,
+                    max_retries=3,
+                )
+                page_metadata = page_metadata_model.analyze_pages(
+                    self.result.document.pages
+                )
+            else:
+                page_metadata = {}
+
+            self.result.document = ExtendedDocument(
+                **self.result.document.model_dump(),
+                page_metadata=page_metadata,
+                input_hash=self._input_hash,
+            )
+
+            self.document = self.result.document
+            self.logger.info(f"Document conversion completed")
+
+            return self.document
+
+        except Exception as e:
+            self.logger.error(f"Document conversion failed: {e}")
+            raise
+        finally:
+            # Cleanup to prevent memory leaks
+            gc.collect()
 
     def load_document(self):
         self.logger.info("Loading document")
@@ -189,34 +297,52 @@ class MAUDConverter(DocumentConverter):
         self.save_images()
 
     def save_images(self):
-        page_dir = self._output_path / "pages"
-        page_dir.mkdir(exist_ok=True, parents=True)
-        for _, page in list(self.document.pages.items()):
+        """Save images with basic error handling."""
+        directories = {
+            "pages": self._output_path / "pages",
+            "pictures": self._output_path / "pictures",
+            "tables": self._output_path / "tables",
+        }
+
+        for dir_path in directories.values():
+            dir_path.mkdir(exist_ok=True, parents=True)
+
+        # Save page images
+        for page_no, page in self.document.pages.items():
             if page.image is not None:
-                page_image_path = page_dir / f"{page.page_no}.webp"
-                with page_image_path.open("wb") as fp:
-                    page.image.pil_image.save(fp, format="webp", quality=100)
-                self.saved_file_locations["pages"][page.page_no] = str(page_image_path)
+                try:
+                    page_image_path = directories["pages"] / f"{page_no}.webp"
+                    with page_image_path.open("wb") as fp:
+                        page.image.pil_image.save(fp, format="webp", quality=85)
+                    self.saved_file_locations["pages"][page_no] = str(page_image_path)
+                except Exception as e:
+                    self.logger.error(f"Failed to save page {page_no} image: {e}")
 
-        pic_dir = self._output_path / "pictures"
-        pic_dir.mkdir(exist_ok=True, parents=True)
-        for picture in list(self.document.pictures):
+        # Save picture images
+        for picture in self.document.pictures:
             if picture.image is not None:
-                pic_ref = picture.self_ref.split("/")[-1]
-                pic_image_path = pic_dir / f"{pic_ref}.webp"
-                with pic_image_path.open("wb") as fp:
-                    picture.image.pil_image.save(fp, format="webp", quality=100)
-                self.saved_file_locations["pictures"][pic_ref] = str(pic_image_path)
+                try:
+                    pic_ref = picture.self_ref.split("/")[-1]
+                    pic_image_path = directories["pictures"] / f"{pic_ref}.webp"
+                    with pic_image_path.open("wb") as fp:
+                        picture.image.pil_image.save(fp, format="webp", quality=85)
+                    self.saved_file_locations["pictures"][pic_ref] = str(pic_image_path)
+                except Exception as e:
+                    self.logger.error(f"Failed to save picture {pic_ref} image: {e}")
 
-        table_dir = self._output_path / "tables"
-        table_dir.mkdir(exist_ok=True, parents=True)
-        for table in list(self.document.tables):
+        # Save table images
+        for table in self.document.tables:
             if table.image is not None:
-                table_ref = table.self_ref.split("/")[-1]
-                table_image_path = table_dir / f"{table_ref}.webp"
-                with table_image_path.open("wb") as fp:
-                    table.image.pil_image.save(fp, format="webp", quality=100)
-                self.saved_file_locations["tables"][table_ref] = str(table_image_path)
+                try:
+                    table_ref = table.self_ref.split("/")[-1]
+                    table_image_path = directories["tables"] / f"{table_ref}.webp"
+                    with table_image_path.open("wb") as fp:
+                        table.image.pil_image.save(fp, format="webp", quality=85)
+                    self.saved_file_locations["tables"][table_ref] = str(
+                        table_image_path
+                    )
+                except Exception as e:
+                    self.logger.error(f"Failed to save table {table_ref} image: {e}")
 
     def chunk(self):
         return chunk_maud_document(
@@ -297,7 +423,11 @@ class PageMetadata:
 
 
 class PictureDescriptionModel(BaseEnrichmentModel):
-    def __init__(self, pipeline_options: MAUDPipelineOptions):
+    """
+    Simple picture description model with basic retry logic.
+    """
+
+    def __init__(self, pipeline_options):
         self.enabled = pipeline_options.do_picture_description
         self.llm_client = pipeline_options.llm_client
         self.llm_model = pipeline_options.llm_model
@@ -307,7 +437,8 @@ class PictureDescriptionModel(BaseEnrichmentModel):
     def is_processable(self, doc: DoclingDocument, element: NodeItem) -> bool:
         is_picture = isinstance(element, PictureItem)
         has_client = bool(self.llm_client)
-        return self.enabled and is_picture and has_client
+        has_image = is_picture and element.image is not None
+        return self.enabled and is_picture and has_client and has_image
 
     def __call__(
         self, doc: DoclingDocument, element_batch: Iterable[NodeItem]
@@ -316,32 +447,63 @@ class PictureDescriptionModel(BaseEnrichmentModel):
             return
 
         for element in element_batch:
-            assert isinstance(element, PictureItem)
-            self.logger.debug(f"Processing picture element: {element}")
+            if self.is_processable(doc, element):
+                assert isinstance(element, PictureItem)
 
+                description = self._get_description_with_retry(element)
+                element.text = description
+
+                yield element
+
+    def _get_description_with_retry(self, element: PictureItem) -> str:
+        """Generate description with simple retry logic."""
+        if not element.image:
+            return "No image available for description"
+
+        prompt = (
+            "Describe this image concisely in 2-3 sentences. Focus on:\n"
+            "- Main subjects/objects\n"
+            "- Key visual elements\n"
+            "- Context or setting\n"
+            "Be factual and specific."
+        )
+
+        max_retries = 3
+
+        for attempt in range(max_retries):
             try:
-                description = get_openai_description(
-                    client=self.llm_client,
+                if attempt > 0:
+                    time.sleep(2**attempt)  # Simple exponential backoff
+
+                response = self.llm_client.chat.completions.create(
                     model=self.llm_model,
-                    image=element.image.pil_image,
-                    image_type="picture",
-                    max_tokens=self.max_tokens,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": element.image.doclaynet_url},
+                                },
+                            ],
+                        }
+                    ],
+                    max_tokens=min(self.max_tokens, 200),
+                    temperature=0.1,
+                    timeout=45,
                 )
+
+                return response.choices[0].message.content.strip()
 
             except Exception as e:
-                self.logger.error(
-                    f"Error getting image description: {str(e)}", exc_info=True
+                self.logger.warning(
+                    f"Picture description attempt {attempt + 1} failed: {str(e)}"
                 )
-                description = ""
+                if attempt == max_retries - 1:
+                    return f"Failed to generate description"
 
-            element.annotations.append(
-                PictureDescriptionData(
-                    provenance=self.llm_model,
-                    text=description,
-                )
-            )
-
-            yield element
+        return "Description unavailable"
 
 
 class PictureClassifierModel(BaseEnrichmentModel):

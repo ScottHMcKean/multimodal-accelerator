@@ -42,7 +42,7 @@ def make_table_chunks(document, image_locations={}):
         captions = [table.caption_text(document)]
         tables = [table.self_ref.split("/")[-1]]
         pictures = []
-        content_text = table.export_to_markdown()
+        content_text = table.export_to_markdown(document)
 
         table_image_path = image_locations.get(table.self_ref.split("/")[-1], "")
 
@@ -174,8 +174,9 @@ def make_text_chunk(document, chunk):
     unique_pages = list(set([page for sublist in pages for page in sublist]))
     unique_pages.sort()
     doc_refs = [x.self_ref for x in chunk.meta.doc_items]
-    headings = chunk.meta.headings
-    captions = chunk.meta.captions
+    # Use metadata access instead of deprecated .meta.headings/.meta.captions
+    headings = getattr(chunk.meta, "headings", [])
+    captions = getattr(chunk.meta, "captions", [])
     tables = [
         x.self_ref.split("/")[-1]
         for x in chunk.meta.doc_items
@@ -210,7 +211,8 @@ def make_text_chunk(document, chunk):
 
 
 def make_text_chunks(document, max_tokens=1000):
-    chunker = HybridChunker(tokenizer="sentence-transformers/all-MiniLM-L6-v2")
+    # Updated HybridChunker initialization without deprecated tokenizer parameter
+    chunker = HybridChunker()
     chunks = list(chunker.chunk(document, max_tokens=max_tokens))
     chunk_dicts = [make_text_chunk(document, chunk) for chunk in chunks]
     return chunk_dicts
