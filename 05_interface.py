@@ -10,7 +10,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install mlflow
+# MAGIC %pip install mlflow>3.1
 # MAGIC %restart_python
 
 # COMMAND ----------
@@ -39,6 +39,10 @@ result = get_deploy_client("databricks").predict(
 
 # COMMAND ----------
 
+result
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## How Databricks Apps Work
 # MAGIC
@@ -48,7 +52,14 @@ result = get_deploy_client("databricks").predict(
 
 # COMMAND ----------
 
-# MAGIC %pip install databricks-sdk --upgrade
+# MAGIC %pip install uv
+
+# COMMAND ----------
+
+# MAGIC %sh uv pip install .
+
+# COMMAND ----------
+
 # MAGIC %restart_python
 
 # COMMAND ----------

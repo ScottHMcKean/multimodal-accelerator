@@ -23,12 +23,6 @@
 
 # COMMAND ----------
 
-import sys, os
-
-sys.path.insert(0, os.getcwd())
-
-# COMMAND ----------
-
 # load config as both an mlflow object and a pydantic class
 import mlflow
 from src.agent.config import parse_config
@@ -173,6 +167,12 @@ databricks_resources = [
     ),
 ]
 
+# Get dependencies
+import tomllib
+with open("pyproject.toml", "rb") as f:
+    toml = tomllib.load(f)
+dependencies = toml['project']['dependencies']
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -187,23 +187,35 @@ databricks_resources = [
 # COMMAND ----------
 
 # Log the model
-from pkg_resources import get_distribution
-
 with mlflow.start_run():
     logged_agent_info = mlflow.pyfunc.log_model(
         python_model="agent.py",
         model_config="config.yaml",
         artifact_path="agent",
         code_paths=["src"],
-        extra_pip_requirements=[
-            f"databricks-connect=={get_distribution('databricks-connect').version}"
-        ],
+        pip_requirements=dependencies,
         registered_model_name=maud_config.agent.uc_model_name,
         input_example=input_example,
         resources=databricks_resources,
     )
 
     print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")
+
+# COMMAND ----------
+
+maud_config.retriever.chunk_template
+
+# COMMAND ----------
+
+import mlflow
+
+# COMMAND ----------
+
+# Log the prompts
+prompt = mlflow.genai.register_prompt(
+    name="shm.pid.retriever",
+    template=maud_config.retriever.chunk_template,
+)
 
 # COMMAND ----------
 
