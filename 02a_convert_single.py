@@ -27,7 +27,7 @@
 
 from pathlib import Path
 
-pdf_input_path = Path("tests/data/wiring_bonding.pdf")
+pdf_input_path = Path("tests/data/pid_diagram.pdf")
 output_dir = Path("data/processed")  # Define output directory
 
 # COMMAND ----------
@@ -61,6 +61,16 @@ warnings.filterwarnings(
 # MAGIC %md
 # MAGIC ## Ray MAUD Docling Converter
 # MAGIC The MAUD acclerator extends Docling in order to process the tables, pages, and figures as well as the document hierarchy. We setup the whole converter pipeline within a single object
+
+
+# COMMAND ----------
+from docling.document_converter import DocumentConverter
+
+converter = DocumentConverter()
+doc = converter.convert(source=pdf_input_path).document
+
+# COMMAND ----------
+doc.model_dump()
 
 # COMMAND ----------
 
