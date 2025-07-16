@@ -17,7 +17,7 @@
 
 # COMMAND ----------
 
-# MAGIC %sh uv pip install .
+# MAGIC %sh uv pip install '.[convert]'
 
 # COMMAND ----------
 
@@ -113,5 +113,3 @@ chunks = converter.chunk()
 # COMMAND ----------
 
 pd.DataFrame(chunks)
-
-# COMMAND ----------

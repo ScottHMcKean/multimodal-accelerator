@@ -61,7 +61,7 @@ chunk_df = pd.read_parquet(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}/ch
 from pyspark.sql.functions import monotonically_increasing_id
 chunk_sp = spark.createDataFrame(chunk_df)
 chunk_sp = chunk_sp.withColumn("id", monotonically_increasing_id())
-chunk_sp.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.chunks")
+# chunk_sp.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.chunks")
 display(chunk_sp.limit(5))
 
 # COMMAND ----------

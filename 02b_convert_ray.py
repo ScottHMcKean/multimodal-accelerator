@@ -20,7 +20,7 @@
 
 # COMMAND ----------
 
-# MAGIC %sh uv pip install .
+# MAGIC %sh uv pip install '.[convert]'
 
 # COMMAND ----------
 
@@ -193,7 +193,7 @@ class DocumentProcessor:
 
 from pathlib import Path
 
-max_files = 100
+max_files = 10000
 file_paths = sorted(
     Path(f"/Volumes/{CATALOG}/{SCHEMA}/{RAW_DOCS_VOL}").rglob("*.pdf"),
     key=lambda p: p.stat().st_size,

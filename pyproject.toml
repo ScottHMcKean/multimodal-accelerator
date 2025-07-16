@@ -5,18 +5,19 @@ description = "Multimodal Analysis of Unstructured Documents"
 requires-python = "==3.12.3"
 
 dependencies = [
+    "databricks-agents==1.1.0",
     "databricks-connect==16.3.2",
     "databricks-langchain>=0.2.0",
     "pillow==10.3.0",
     "mlflow>3.1",
     "langgraph>=0.5.0",
-    "docling>=2.39.0",
     "openai>=1.93.0",
-    "torch==2.3.1+cpu",
-    "torchvision==0.18.1+cpu",
 ]
 
 [project.optional-dependencies]
+convert = [
+    "docling>=2.39.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.23.0",
