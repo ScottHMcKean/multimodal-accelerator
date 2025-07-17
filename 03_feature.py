@@ -58,11 +58,57 @@ chunk_df = pd.read_parquet(f"/Volumes/{CATALOG}/{SCHEMA}/{PROCESSED_DOCS_VOL}/ch
 
 # COMMAND ----------
 
+chunk_df
+
+# COMMAND ----------
+
+def cast_to_str_array(arr):
+    if arr is None:
+        return []
+    # Convert all elements to string, skip None values
+    return [str(x) for x in arr if x is not None]
+
+# COMMAND ----------
+
+chunk_df_no_tables = chunk_df.drop(columns=['tables'])
+
+# COMMAND ----------
+
+chunk_sp = spark.createDataFrame(chunk_df_no_tables)
+
+# COMMAND ----------
+
+chunk_sp
+
+# COMMAND ----------
+
 from pyspark.sql.functions import monotonically_increasing_id
-chunk_sp = spark.createDataFrame(chunk_df)
+chunk_sp = spark.createDataFrame(chunk_df_no_tables)
 chunk_sp = chunk_sp.withColumn("id", monotonically_increasing_id())
 # chunk_sp.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.chunks")
 display(chunk_sp.limit(5))
+
+# COMMAND ----------
+
+chunk_sp.write.option("mergeSchema", "true").mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.chunks")
+
+# COMMAND ----------
+
+spark.sql(f"""
+    ALTER TABLE {CATALOG}.{SCHEMA}.{CHUNKS_TABLE_NAME}
+    ADD COLUMNS (tables ARRAY<STRING>)
+""")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC ALTER TABLE devanshu_pandey.multimodal.chunks
+# MAGIC     ADD COLUMNS (tables ARRAY<STRING>)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select * from devanshu_pandey.multimodal.chunks
 
 # COMMAND ----------
 
@@ -120,7 +166,7 @@ except:
 
 # COMMAND ----------
 
-query = "What is the largest microseismic event recorded?"
+query = "How do I create a new layer?"
 
 spark.sql(f"""
 SELECT *

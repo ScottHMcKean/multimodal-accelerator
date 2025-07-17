@@ -35,9 +35,9 @@ SCHEMA = config.get("data").get("schema")
 RAW_DOCS_VOL = config.get("data").get("raw_docs_vol")
 PROCESSED_DOCS_VOL = config.get("data").get("processed_docs_vol")
 
-spark = get_spark()
-doc_df = pd.read_csv("./assets/forge_reports.csv")
-doc_paths = spark.createDataFrame(doc_df)
+#spark = get_spark()
+#doc_df = pd.read_csv("./assets/forge_reports.csv")
+#doc_paths = spark.createDataFrame(doc_df)
 
 # COMMAND ----------
 
@@ -115,3 +115,21 @@ doc_paths = doc_paths.withColumn(
 # COMMAND ----------
 
 display(doc_paths)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC create table devanshu_pandey.multimodal.documents as select * from shm.multimodal.documents
+# MAGIC limit 0;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select * from shm.multimodal.documents limit 1
+
+# COMMAND ----------
+
+spark.sql("""
+INSERT INTO devanshu_pandey.multimodal.documents (id, title, url, download_link, saved_file_path)
+VALUES (1, 'WikiHow Adobe Photoshop', 'https://www.wikihow.com/Use-Adobe-Photoshop', 'https://www.wikihow.com/Use-Adobe-Photoshop', '/Volumes/devanshu_pandey/multimodal/raw_docs/wikihow_adobe_photoshop.pdf')
+""")

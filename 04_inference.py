@@ -80,7 +80,7 @@ app = workflow.compile()
 
 input_example = {
     "messages": [
-        {"role": "user", "content": "What are the depths of the wells in the project?"}
+        {"role": "user", "content": "How do I add a new layer?"}
     ]
 }
 
