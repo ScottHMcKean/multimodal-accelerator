@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 import mlflow
 from pathlib import Path
@@ -15,8 +15,8 @@ class ConfigModel(BaseModel):
 
 
 class DataConfig(ConfigModel):
-    catalog: str
-    schema: str
+    uc_catalog: str = Field(alias="catalog")
+    uc_schema: str = Field(alias="schema")
     raw_docs_vol: str
     processed_docs_vol: str
     chunks_table_name: str

@@ -13,10 +13,6 @@
 
 # COMMAND ----------
 
-# MAGIC %restart_python
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ## Config
 # MAGIC Parse our config using pydantic types and validation to standardize productionized workflow
@@ -27,7 +23,7 @@
 import mlflow
 from src.agent.config import parse_config
 
-mlflow_config = mlflow.models.ModelConfig(development_config="config.yaml")
+mlflow_config = mlflow.models.ModelConfig(development_config="config_forge.yaml")
 maud_config = parse_config(mlflow_config)
 
 # COMMAND ----------
@@ -184,19 +180,18 @@ dependencies = toml["project"]["dependencies"]
 # COMMAND ----------
 
 # Log the model
-with mlflow.start_run():
-    logged_agent_info = mlflow.pyfunc.log_model(
-        python_model="agent.py",
-        model_config="config.yaml",
-        artifact_path="agent",
-        code_paths=["src"],
-        pip_requirements=dependencies,
-        registered_model_name=maud_config.agent.uc_model_name,
-        input_example=input_example,
-        resources=databricks_resources,
-    )
+logged_agent_info = mlflow.pyfunc.log_model(
+    name="multimodal_agent"
+    python_model="agent.py",
+    model_config="config.yaml",
+    code_paths=["src"],
+    pip_requirements=dependencies,
+    registered_model_name=maud_config.agent.uc_model_name,
+    input_example=input_example,
+    resources=databricks_resources,
+)
 
-    print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")
+print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")
 
 # COMMAND ----------
 

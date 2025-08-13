@@ -52,35 +52,6 @@ result
 
 # COMMAND ----------
 
-# MAGIC %pip install uv
-
-# COMMAND ----------
-
-# MAGIC %sh uv pip install .
-
-# COMMAND ----------
-
-# MAGIC %restart_python
-
-# COMMAND ----------
-
-from databricks.sdk import WorkspaceClient
-from src.interface.create import create_app
-
-w = WorkspaceClient()
-
-# COMMAND ----------
-
-app_name = "multimodal_maud"
-source_code_path = "maud/interfaces"
-try:
-    app_info = w.apps.get(app_name)
-except Exception as e:
-    print(e)
-    create_app()
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ## How to work with a multimodal chat interface
 # MAGIC

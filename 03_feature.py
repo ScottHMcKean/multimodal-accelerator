@@ -1,7 +1,7 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # Featurize
-# MAGIC With Generative AI and RAG specifically, most of the 'featurization' of our data is simply preparing a vector search index. This notebook takes the processed chunks (which contain tables, images, pages, and text chunks). It has been tested with Serverless.
+# MAGIC With Generative AI and RAG specifically, most of the 'featurization' of our data is simply preparing a vector search index. This notebook takes the processed chunks (which contain tables, images, pages, and text chunks). It has been tested with Serverless v3.
 
 # COMMAND ----------
 
@@ -35,7 +35,7 @@ sys.path.append(".")
 from mlflow.models import ModelConfig
 import pandas as pd
 
-config = ModelConfig(development_config="config.yaml")
+config = ModelConfig(development_config="config_forge.yaml")
 
 # data
 CATALOG = config.get("data").get("catalog")
