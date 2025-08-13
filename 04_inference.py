@@ -78,11 +78,7 @@ app = workflow.compile()
 
 # COMMAND ----------
 
-input_example = {
-    "messages": [
-        {"role": "user", "content": "How do I add a new layer?"}
-    ]
-}
+input_example = {"messages": [{"role": "user", "content": "How do I add a new layer?"}]}
 
 # COMMAND ----------
 
@@ -163,15 +159,16 @@ from mlflow.models.resources import (
 databricks_resources = [
     DatabricksServingEndpoint(endpoint_name=maud_config.model.endpoint_name),
     DatabricksVectorSearchIndex(
-        index_name=f"{maud_config.data.catalog}.{maud_config.data.schema}.{maud_config.retriever.index_name}"
+        index_name=f"{maud_config.data.uc_catalog}.{maud_config.data.uc_schema}.{maud_config.retriever.index_name}"
     ),
 ]
 
 # Get dependencies
 import tomllib
+
 with open("pyproject.toml", "rb") as f:
     toml = tomllib.load(f)
-dependencies = toml['project']['dependencies']
+dependencies = toml["project"]["dependencies"]
 
 # COMMAND ----------
 

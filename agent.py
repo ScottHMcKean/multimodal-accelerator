@@ -25,8 +25,6 @@ context_generation_node = make_context_generation_node(model, maud_config)
 
 # Graph
 from langgraph.graph import StateGraph, START, END
-from langchain_core.runnables import RunnableLambda
-from src.agent.utils import graph_state_to_chat_type
 
 workflow = StateGraph(state)
 workflow.add_node("retrieve", retriever_node)

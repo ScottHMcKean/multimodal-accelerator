@@ -5,7 +5,7 @@ from langchain_core.vectorstores import VectorStoreRetriever
 
 def get_vector_retriever(config: MaudConfig) -> VectorStoreRetriever:
     vector_search = DatabricksVectorSearch(
-        index_name=f"{config.data.catalog}.{config.data.schema}.{config.retriever.index_name}",
+        index_name=f"{config.data.uc_catalog}.{config.data.uc_schema}.{config.retriever.index_name}",
         columns=config.retriever.all_columns,
     )
 
