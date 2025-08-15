@@ -102,13 +102,12 @@ for msg in app.stream(input_example, stream_mode="updates"):
 
 # COMMAND ----------
 
-from importlib import reload
-import agent
+import sys
+sys.path.append(".")
+from agent_code import AGENT
 
-reload(agent)
-from agent import MAUDAgent
+# COMMAND ----------
 
-AGENT = MAUDAgent(app)
 AGENT.predict(input_example)
 
 # COMMAND ----------
@@ -131,6 +130,15 @@ for msg in AGENT.predict_stream(input_example):
 # MAGIC - We set a well defined signature so that MLFLow knows that we can use the agent evaluation framework
 # MAGIC - We provide a list of resources to allow flow through authentication
 # MAGIC - We get a list of packages that matches of development package versions
+
+# COMMAND ----------
+
+maud_config.agent.experiment_location
+
+# COMMAND ----------
+
+experiment = mlflow.get_experiment_by_name('/Users/scott.mckean@databricks.com/agent_langgraph')
+experiment.experiment_id
 
 # COMMAND ----------
 
@@ -161,7 +169,6 @@ databricks_resources = [
 
 # Get dependencies
 import tomllib
-
 with open("pyproject.toml", "rb") as f:
     toml = tomllib.load(f)
 dependencies = toml["project"]["dependencies"]
@@ -181,25 +188,25 @@ dependencies = toml["project"]["dependencies"]
 
 # Log the model
 logged_agent_info = mlflow.pyfunc.log_model(
-    name="multimodal_agent"
-    python_model="agent.py",
-    model_config="config.yaml",
+    name="multimodal_agent", 
+    python_model="agent_code.py",
+    model_config="config_forge.yaml",
     code_paths=["src"],
     pip_requirements=dependencies,
     registered_model_name=maud_config.agent.uc_model_name,
     input_example=input_example,
-    resources=databricks_resources,
+    resources=databricks_resources
 )
 
 print(f"Model logged and registered with URI: {logged_agent_info.model_uri}")
 
 # COMMAND ----------
 
-maud_config.retriever.chunk_template
+logged_agent_info.
 
 # COMMAND ----------
 
-import mlflow
+mlflow.search_experiments("attributes.")
 
 # COMMAND ----------
 
@@ -243,3 +250,7 @@ deployment_info = agents.deploy(
     logged_agent_info.registered_model_version,
     scale_to_zero=True,
 )
+
+# COMMAND ----------
+
+deployment_info

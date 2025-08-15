@@ -2,7 +2,7 @@
 import mlflow
 from src.agent.config import parse_config
 
-mlflow_config = mlflow.models.ModelConfig(development_config="./config.yaml")
+mlflow_config = mlflow.models.ModelConfig(development_config="./config_forge.yaml")
 maud_config = parse_config(mlflow_config)
 
 # API Interfaces
@@ -59,6 +59,8 @@ class MAUDAgent(ChatAgent):
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> ChatAgentResponse:
+        mlflow.langchain.autolog()
+        
         request = {
             "messages": [m.model_dump_compat(exclude_none=True) for m in messages]
         }
@@ -84,6 +86,8 @@ class MAUDAgent(ChatAgent):
         context: Optional[ChatContext] = None,
         custom_inputs: Optional[dict[str, Any]] = None,
     ) -> Generator[ChatAgentChunk, None, None]:
+        mlflow.langchain.autolog()
+        
         request = {
             "messages": [m.model_dump_compat(exclude_none=True) for m in messages]
         }
@@ -103,6 +107,5 @@ class MAUDAgent(ChatAgent):
                 )
 
 
-mlflow.langchain.autolog()
 AGENT = MAUDAgent(graph)
 mlflow.models.set_model(AGENT)

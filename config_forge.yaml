@@ -1,5 +1,5 @@
 data:
-  catalog: devanshu_pandey
+  catalog: shm
   schema: multimodal
   raw_docs_vol: raw_docs
   processed_docs_vol: processed_docs
@@ -27,8 +27,8 @@ retriever:
   chunk_template: 'Passage: {chunk_text}\n Document URI: {document_uri}\n'
 agent:
   streaming: False
-  experiment_location: /Users/devanshu.pandey@databricks.com/agent_langgraph
-  uc_model_name: devanshu_pandey.multimodal.agent_langgraph
+  experiment_location: /Users/scott.mckean@databricks.com/agent_langgraph
+  uc_model_name: shm.multimodal.agent_langgraph
 interface:
   title: Multimodal Document Retrieval
   description: Search for documents and retrieve links and images of pages, tables, and figures.
