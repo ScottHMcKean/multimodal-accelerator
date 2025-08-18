@@ -1,6 +1,6 @@
 data:
-  uc_catalog: devanshu_pandey
-  uc_schema: multimodal
+  catalog: devanshu_pandey
+  schema: multimodal
   raw_docs_vol: raw_docs
   processed_docs_vol: processed_docs
   chunks_table_name: chunks
