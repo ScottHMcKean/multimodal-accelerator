@@ -1,35 +1,57 @@
 [project]
-name = "maud"
-version = "0.1.0"
-description = "Multimodal Analysis of Unstructured Documents"
-requires-python = "==3.12.3"
+name = "multimodal-document-processing"
+version = "2.0.0"
+description = "Simplified multimodal document processing with three core methods and Databricks Managed MCP"
+requires-python = ">=3.12"
 
 dependencies = [
-    "databricks-agents==1.1.0",
-    "databricks-connect==16.3.2",
-    "databricks-langchain>=0.2.0",
-    "pillow==10.3.0",
-    "mlflow>3.1",
-    "langgraph>=0.5.0",
-    "openai>=1.93.0",
+    "databricks-connect>=16.3.2",
+    "databricks-langchain>=0.2.0", 
+    "mlflow>=3.1",
+    "pillow>=10.3.0",
+    "streamlit>=1.28.0",
+    "pandas>=2.0.0",
 ]
 
 [project.optional-dependencies]
-convert = [
-    "docling>=2.39.0",
+# Method 2: Docling + Ray
+docling = [
+    "docling>=2.68.0",
+    "ray>=2.0.0",
 ]
+
+# Method 3: Docling Serving  
+serving = [
+    "docling>=2.68.0",
+    "databricks-sdk>=0.28.0",
+]
+
+# App dependencies (for Streamlit app)
+app = [
+    "streamlit>=1.28.0",
+    "pandas>=2.0.0",
+    "databricks-sdk>=0.28.0",
+]
+
+# Development
 dev = [
     "pytest>=7.0.0",
-    "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.0.0",
-    "pytest-benchmark>=4.0.0",
     "ruff>=0.1.0",
     "black>=23.0.0",
     "ipython>=8.0.0",
-    "mypy>=1.5.0",
     "jupyter>=1.0.0",
     "ipykernel>=6.0.0",
-  ]
+]
+
+# All methods (for comprehensive installation)
+all = [
+    "docling>=2.68.0",
+    "ray>=2.0.0", 
+    "databricks-sdk>=0.28.0",
+    "streamlit>=1.28.0",
+    "pandas>=2.0.0",
+]
 
 [tool.ruff]
 line-length = 88
@@ -44,7 +66,7 @@ line-length = 88
 target-version = ["py312"]
 
 [tool.pytest.ini_options]
-pythonpath = "src"
+pythonpath = [".", "src"]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
@@ -60,21 +82,23 @@ addopts = [
     "--cov-report=xml",
 ]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
-    "agent: marks tests related to agent functionality",
-    "document: marks tests related to document processing",
-    "interface: marks tests related to interface components",
-    "performance: marks tests as performance tests",
-    "error_handling: marks tests related to error handling",
-    "data_validation: marks tests related to data validation",
-    "regression: marks tests for regression testing",
+    "aiparse: AI_PARSE method tests",
+    "docling: Docling method tests", 
+    "serving: Serving endpoint tests",
+    "app: Streamlit app tests",
+    "integration: Integration tests",
+    "unit: Unit tests",
+    "document: Document processing tests",
+    "error_handling: Error handling tests",
+    "data_validation: Data validation tests",
+    "regression: Regression tests",
+    "performance: Performance tests",
+    "slow: Slow running tests",
 ]
-asyncio_mode = "auto"
+# asyncio_mode = "auto"  # Disabled - not using async tests currently
 
 [tool.coverage.run]
-source = ["src"]
+source = ["src", "."]
 omit = [
     "*/tests/*",
     "*/test_*",
@@ -82,6 +106,7 @@ omit = [
     "*/migrations/*",
     "*/venv/*",
     "*/.venv/*",
+    "run_tests.py",
 ]
 
 [tool.coverage.report]
@@ -89,7 +114,7 @@ exclude_lines = [
     "pragma: no cover",
     "def __repr__",
     "raise AssertionError",
-    "raise NotImplementedError",
+    "raise NotImplementedError", 
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]

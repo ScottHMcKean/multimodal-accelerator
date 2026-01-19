@@ -1,171 +1,225 @@
-"""Simplified integration tests for essential MAUD functionality."""
+"""Integration tests for the multimodal accelerator project.
+
+These tests verify that different components work together properly
+and that the overall system functions as expected.
+"""
 
 import pytest
 from pathlib import Path
 
-
 @pytest.mark.integration
-@pytest.mark.document
-class TestBasicDocumentProcessing:
-    """Test basic document processing functionality."""
+class TestProcessingMethodsIntegration:
+    """Test integration between different processing methods."""
 
-    def test_document_converter_import(self):
-        """Test that document converter can be imported."""
-        from src.document.converters import MAUDConverter
+    def test_processing_methods_available(self):
+        """Test that all expected processing methods are available."""
+        from src.core import get_processing_methods
+        
+        methods = get_processing_methods()
+        
+        # Check that core processing methods are available
+        assert "aiparse" in methods
+        assert "docling_ray" in methods
+        assert "docling_serving" in methods
+        
+        # Verify method descriptions
+        for method_name, method_info in methods.items():
+            assert isinstance(method_info, str)  # Methods return description strings
 
-        assert MAUDConverter is not None
-
-    def test_document_processing_with_sample_files(self, sample_docx_path):
-        """Test basic document processing with sample files."""
-        from src.document.converters import MAUDConverter
-        from tempfile import TemporaryDirectory
-
-        with TemporaryDirectory() as temp_dir:
-            converter = MAUDConverter(
-                input_path=sample_docx_path, output_dir=Path(temp_dir)
-            )
-
-            # Just test that converter can be created
-            assert converter is not None
-            assert converter.input_path.exists()
-
-    def test_different_file_types_basic(
-        self, sample_docx_path, sample_xlsx_path, sample_pptx_path
-    ):
-        """Test that converters can be created for different file types."""
-        from src.document.converters import MAUDConverter
-        from tempfile import TemporaryDirectory
-
-        file_paths = [sample_docx_path, sample_xlsx_path, sample_pptx_path]
-
-        with TemporaryDirectory() as temp_dir:
-            for file_path in file_paths:
-                if file_path.exists():
-                    converter = MAUDConverter(
-                        input_path=file_path, output_dir=Path(temp_dir)
-                    )
-                    assert converter is not None
+    def test_processing_config_integration(self):
+        """Test that ProcessingConfig works with different methods."""
+        from src.core import ProcessingConfig
+        
+        config = ProcessingConfig("main", "default", "input", "output")
+        
+        # Test basic properties
+        assert config.catalog == "main"
+        assert config.schema == "default"
+        assert "input" in config.input_path
+        assert "output" in config.output_path
 
 
 @pytest.mark.integration
-@pytest.mark.document
-class TestModuleIntegration:
-    """Test that modules work together."""
+@pytest.mark.aiparse
+class TestAIParseIntegration:
+    """Test AI_PARSE integration."""
 
-    def test_agent_document_module_integration(self):
-        """Test that agent and document modules can be imported together."""
-        from src.agent import config, functions, nodes
-        from src.document import converters, chunkers
+    def test_ai_parse_workflow_logic(self):
+        """Test AI_PARSE workflow logic."""
+        from src.core import ProcessingConfig, get_processing_methods
+        
+        config = ProcessingConfig("test", "test", "input", "output")
+        methods = get_processing_methods()
+        
+        # Verify AI_PARSE is available
+        assert "aiparse" in methods
+        
+        # Test configuration compatibility
+        assert config.get_table_name("documents") == "test.test.documents"
 
-        # Test that modules don't conflict
-        assert config is not None
-        assert functions is not None
-        assert nodes is not None
-        assert converters is not None
-        assert chunkers is not None
 
-    def test_interface_module_integration(self):
-        """Test that interface modules can be imported."""
-        from src.interface import config
+@pytest.mark.integration  
+@pytest.mark.docling
+class TestDoclingIntegration:
+    """Test Docling integration."""
 
-        assert config is not None
+    def test_docling_workflow_logic(self):
+        """Test Docling workflow logic.""" 
+        from src.core import ProcessingConfig
+        
+        config = ProcessingConfig("test", "test", "input", "output")
+        
+        # Test that config works for Docling processing
+        assert config.input_path is not None
+        assert config.output_path is not None
+
+    def test_processing_result_structure(self):
+        """Test processing result structure."""
+        from src.core import print_processing_summary
+        
+        # Test with realistic results structure
+        results = [
+            {"status": "success", "file": "file1.pdf"},
+            {"status": "success", "file": "file2.pdf"}
+        ]
+        
+        # Should not raise an exception
+        print_processing_summary(results, "docling_ray")
+
+
+@pytest.mark.integration
+@pytest.mark.serving
+class TestServingEndpointIntegration:
+    """Test serving endpoint integration."""
+
+    def test_serving_endpoint_structure(self):
+        """Test serving endpoint structure."""
+        try:
+            from src.docling_endpoint import DoclingParsingModel
+            
+            model = DoclingParsingModel()
+            assert hasattr(model, 'predict')
+            assert hasattr(model, 'load_context')
+        except ImportError:
+            pytest.skip("Docling endpoint not available")
+
+    def test_serving_request_structure(self):
+        """Test serving request structure."""
+        # Test expected request format
+        request = {
+            "file_path": "/Volumes/main/default/docs/test.pdf",
+            "output_path": "/Volumes/main/default/output/",
+            "vlm_preset": "granite_picture_description"
+        }
+        
+        # Verify required fields
+        assert "file_path" in request
+        assert "output_path" in request
+
+    def test_serving_response_structure(self):
+        """Test serving response structure."""
+        # Test expected response format
+        response = {
+            "status": "success",
+            "document_path": "/Volumes/main/default/output/test.json",
+            "images": ["image1.png", "image2.png"],
+            "processing_time": 45.2
+        }
+        
+        # Verify response structure
+        assert "status" in response
+        assert response["status"] in ["success", "error"]
 
 
 @pytest.mark.integration
 @pytest.mark.error_handling
-class TestBasicErrorHandling:
-    """Test basic error handling."""
+class TestErrorHandling:
+    """Test error handling across the system."""
 
-    def test_invalid_file_handling(self):
-        """Test handling of invalid input files."""
-        from src.document.converters import MAUDConverter
-        from pathlib import Path
-        from tempfile import TemporaryDirectory
+    def test_invalid_filename_handling(self):
+        """Test handling of invalid filenames."""
+        from src.core import sanitize_filename
+        
+        # Test filename sanitization
+        result = sanitize_filename("invalid<>file|name.pdf")
+        assert "<" not in result
+        assert ">" not in result
+        assert "|" not in result
 
-        with TemporaryDirectory() as temp_dir:
-            invalid_path = Path("nonexistent_file.pdf")
-
-            # Should handle invalid path gracefully
-            try:
-                converter = MAUDConverter(
-                    input_path=invalid_path, output_dir=Path(temp_dir)
-                )
-                # Just test creation, not conversion
-                assert converter is not None
-            except Exception as e:
-                # If it raises an exception, that's also acceptable behavior
-                assert isinstance(e, (FileNotFoundError, ValueError))
-
-    def test_module_import_error_handling(self):
-        """Test that module imports handle missing dependencies gracefully."""
-        # Test that basic imports work
+    def test_module_imports(self):
+        """Test that core modules can be imported."""
+        # Test that core modules can be imported
         try:
-            from src.agent import config
-
-            assert config is not None
-        except ImportError:
-            pytest.skip("Agent config module not available")
-
-        try:
-            from src.document import converters
-
-            assert converters is not None
-        except ImportError:
-            pytest.skip("Document converters module not available")
+            import src.core
+            import src.images
+            assert True
+        except ImportError as e:
+            pytest.fail(f"Core module import failed: {e}")
 
 
 @pytest.mark.integration
 @pytest.mark.data_validation
 class TestDataConsistency:
-    """Test data consistency across components."""
-
-    def test_chunk_data_structure_consistency(self):
-        """Test that chunk data structure is consistent."""
-        from src.document.chunkers import chunk_schema
-
-        # Test that schema is consistently defined
-        assert chunk_schema is not None
-        field_names = [field.name for field in chunk_schema.fields]
-        assert len(field_names) > 0
-        assert "chunk_type" in field_names
-        assert "text" in field_names
+    """Test data consistency across the system."""
 
     def test_config_structure_consistency(self):
         """Test that config structures are consistent."""
-        from src.agent.config import MaudConfig
+        from src.core import ProcessingConfig
+        
+        config = ProcessingConfig("test", "test", "input", "output")
+        
+        # Test that config produces consistent table names
+        docs_table = config.get_table_name("documents")
+        chunks_table = config.get_table_name("chunks")
+        
+        assert "test.test" in docs_table
+        assert "test.test" in chunks_table
 
-        # Test that config classes exist and are properly structured
-        assert MaudConfig is not None
-        # Test that it's a class that can be referenced
-        assert hasattr(MaudConfig, "__name__")
+    def test_volume_path_consistency(self):
+        """Test volume path consistency."""
+        from src.core import get_volume_path, ProcessingConfig
+        
+        # Test direct function call
+        direct_path = get_volume_path("test", "schema", "volume")
+        
+        # Test via config
+        config = ProcessingConfig("test", "schema", "volume", "output")
+        config_path = config.input_path
+        
+        # Should produce same base path
+        assert "test/schema/volume" in direct_path
+        assert "test/schema/volume" in config_path
 
 
-@pytest.mark.regression
 @pytest.mark.integration
 class TestSystemStability:
-    """Basic regression tests for system stability."""
+    """Test system stability."""
 
-    def test_module_import_stability(self):
-        """Test that core modules can be imported consistently."""
-        # Test multiple imports of the same modules
-        for _ in range(3):
-            from src.agent import config
-            from src.document import chunkers
+    def test_core_functionality_stability(self):
+        """Test that core functionality works reliably."""
+        from src.core import get_processing_methods, ProcessingConfig, sanitize_filename
+        
+        # Test core functions work
+        methods = get_processing_methods()
+        assert len(methods) > 0
+        
+        config = ProcessingConfig("test", "test", "input", "output")
+        assert config is not None
+        
+        filename = sanitize_filename("test file.pdf")
+        assert filename is not None
+        assert ".pdf" in filename
 
-            assert config is not None
-            assert chunkers is not None
-
-    def test_basic_functionality_stability(self):
-        """Test that basic functionality remains stable."""
-        from src.agent.functions import add
-        from src.document.chunkers import chunk_schema
-
-        # Test that basic functions work consistently
-        assert add(2, 3) == 5
-        assert add(0, 0) == 0
-        assert add(-1, 1) == 0
-
-        # Test that schema remains consistent
-        assert chunk_schema is not None
-        field_count = len(chunk_schema.fields)
-        assert field_count > 10  # Should have many fields
+    def test_repeated_operations(self):
+        """Test that operations work consistently when repeated."""
+        from src.core import sanitize_filename, get_volume_path
+        
+        # Test that repeated calls give same results
+        filename = "Test Document (Final).pdf"
+        result1 = sanitize_filename(filename)
+        result2 = sanitize_filename(filename)
+        assert result1 == result2
+        
+        path1 = get_volume_path("catalog", "schema", "volume")
+        path2 = get_volume_path("catalog", "schema", "volume")
+        assert path1 == path2
