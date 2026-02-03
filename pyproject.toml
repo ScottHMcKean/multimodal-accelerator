@@ -1,37 +1,13 @@
 [project]
 name = "multimodal-document-processing"
 version = "2.0.0"
-description = "Simplified multimodal document processing with three core methods and Databricks Managed MCP"
+description = "Simplified docling-based or AI_PARSE_DOCUMENT multimodal processing"
 requires-python = ">=3.12"
 
 dependencies = [
-    "databricks-connect>=16.3.2",
-    "databricks-langchain>=0.2.0", 
-    "mlflow>=3.1",
-    "pillow>=10.3.0",
-    "streamlit>=1.28.0",
-    "pandas>=2.0.0",
+    "docling"
 ]
 
-[project.optional-dependencies]
-# Method 2: Docling + Ray
-docling = [
-    "docling>=2.68.0",
-    "ray>=2.0.0",
-]
-
-# Method 3: Docling Serving  
-serving = [
-    "docling>=2.68.0",
-    "databricks-sdk>=0.28.0",
-]
-
-# App dependencies (for Streamlit app)
-app = [
-    "streamlit>=1.28.0",
-    "pandas>=2.0.0",
-    "databricks-sdk>=0.28.0",
-]
 
 # Development
 dev = [
@@ -43,23 +19,6 @@ dev = [
     "jupyter>=1.0.0",
     "ipykernel>=6.0.0",
 ]
-
-# All methods (for comprehensive installation)
-all = [
-    "docling>=2.68.0",
-    "ray>=2.0.0", 
-    "databricks-sdk>=0.28.0",
-    "streamlit>=1.28.0",
-    "pandas>=2.0.0",
-]
-
-[tool.ruff]
-line-length = 88
-target-version = "py312"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]
 
 [tool.black]
 line-length = 88
