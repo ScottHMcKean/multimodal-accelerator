@@ -1,108 +1,38 @@
-# Multimodal Document Processing - Simplified
+# Multimodal Document Processing
 
-[![DBR](https://img.shields.io/badge/DBR-15.4_LTS_ML-red?logo=databricks&style=for-the-badge)](https://docs.databricks.com/release-notes/runtime/CHANGE_ME.html)
-[![CLOUD](https://img.shields.io/badge/CLOUD-ALL-blue?logo=databricks&style=for-the-badge)](https://databricks.com/try-databricks)
+This project follows a simple four-step flow:
+1. Parse (`1_parse.ipynb`)
+2. Serving (`2_serving.ipynb`)
+3. Agentify (`3_agentify.ipynb`)
+4. Evaluate (`4_evaluate.ipynb`)
 
-**Three streamlined approaches for document processing at scale.**
+## Quick start
+1. Drop documents into the input volume (`/Volumes/<catalog>/<schema>/<input_volume>`) or the local input path (`local_input_path` in `config.yaml`).
+2. Optional: use the commented cell in `1_parse.ipynb` to copy the repo samples from `examples/` into the input directory.
+3. Run `1_parse.ipynb`
+4. Run `2_serving.ipynb`
+5. Run `3_agentify.ipynb`
+6. Run `4_evaluate.ipynb`
 
-## 🎯 Quick Start
+## Databricks Asset Bundle
+This repo includes a Databricks Asset Bundle for deploying the notebook jobs.
 
-Choose your processing method:
+Common commands:
+- `databricks bundle deploy -t dev`
+- `databricks bundle run docling_parse -t dev`
+- `databricks bundle run docling_serving -t dev`
+- `databricks bundle run docling_agentify -t dev`
+- `databricks bundle run docling_evaluate -t dev`
 
-### 1. **AI_PARSE** - Databricks Native (Simplest)
-```sql
--- Zero setup, works with serverless
-SELECT path, ai_parse(content) as parsed 
-FROM read_files('/Volumes/main/default/raw_docs/*.pdf')
-```
+## Serving endpoint tool contract
+Deployment uses an agent tool that calls the model serving endpoint. It accepts input paths and returns parsed output paths.
 
-### 2. **Docling + Ray** - Parallel Processing (Flexible)  
-```bash
-uv run python convert_docling_ray.py
-```
+Request format (dataframe_split):
+- columns: `["file_path", "output_root", "options"]`
+- data: rows of file paths and a shared output root
 
-### 3. **Docling Serving** - GPU + VLM (Most Advanced)
-```bash
-uv run python deploy_docling_endpoint.py  # Deploy
-uv run python convert_docling_serving.py  # Process with VLM
-```
-
-## 📊 Method Comparison
-
-| Method | Complexity | Setup | VLM Support | Best For |
-|--------|------------|-------|-------------|----------|
-| **AI_PARSE** | Simple | None | No | Large batches, serverless |
-| **Docling + Ray** | Medium | Ray cluster | Optional | Custom processing |
-| **Docling Serving** | Low | Model endpoint | Native | GPU + VLM features |
-
-## 🚀 Benefits
-
-✅ **90% less complexity** - Three focused methods instead of complex pipeline  
-✅ **Native VLM support** - Granite Vision, SmolVLM built-in  
-✅ **Choose your approach** - Pick the right tool for each use case  
-✅ **Standard implementations** - No custom code to maintain  
-
-See [README_SIMPLIFIED.md](README_SIMPLIFIED.md) for detailed documentation.
-
-4. Infer: Use a foundation model and agent framework to search and extract information from the documents.
-
-5. Interface: Provide a basic user interface for interacting with the agent and gathering feedback.
-
-<img src="assets/Multimodal Reference Architecture.png" width="800px">
-
-This architecture leverages several services from the Databricks platform: Databricks Apps to deliver a user interface, Databricks Vector Search to serve the retriever, Mosaic AI Gateway to serve the foundation model, Delta Live Tables to sync and maintain the vector database, and Model Serving to serve the agent framework, as show in the the process diagram below.
-
-<img src="assets/Multimodal Process Flow.png" width="800px">
-
-## Key Services and Costs
-
-| Service | Example Cost* | Latency | Reference |
-|---------|------------|---------------|----------|
-| Databricks Apps |  $180/month | <100ms | [Apps Pricing](https://www.databricks.com/product/pricing) |
-| Mosaic Vector Search  | $250/month | 10-100ms | [Docs](https://docs.databricks.com/en/generative-ai/vector-search.html) |
-| Mosaic AI Gateway  | $1.00/1M tokens | 500-5000ms | [Docs](https://docs.databricks.com/en/machine-learning/ai-gateway/index.html) |
-| Mosaic AI Model Serving  | $250/month | ~100ms | [Docs](https://docs.databricks.com/en/machine-learning/model-serving/index.html) |
-
-\* Example costs are illustrative estimates only and will vary based on usage, region, and implementation details. DBU = Databricks Unit.
-
-# Running Multimodal Analysis of Unstructured Documents (MAUD)
-
-This document guides your through running the solution accelerator, modifying it for your use case, and deploying it to Databricks.
-
-## Quick Start
-
-The solution accelerator is designed to be run on Databricks. Here are the steps to get started quickly.
-
-1. Clone the repository
-
-2. Spin up a Databricks cluster with ML Runtime 15.4 or higher
-
-3. Start running the notebooks in order
-
-MAUD uses the LangGraph library to build and deploy agent workflows. This documentation is a summary of the LangGraph documentation and the code in the repository.
-
-## LangGraph
-The [graph definitions](https://langchain-ai.github.io/langgraph/reference/graphs/#graph-definitions) in the LangGraph documentation are helpful for understanding the options for constructing workflows.
-
-LangGraph offers multiple streaming modes, but this repo uses the basic [stream](https://langchain-ai.github.io/langgraph/concepts/streaming/#streaming) mode since MLflow doesn't support async yet. This allows returning node outputs to users during execution, enabling feedback during intermediate steps.
-
-## Modifications
-
-We have tried to keep environment management simple. We use uv to manage the environment and the requirements. There is a single configuration file that is used to configure the entire solution in the root (`config.yaml`).
-
-### Local Development
-You can also test it locally. We use UV for environment management. Here are linux / macos instructions for setting up a local environment, but here is the [official guide](https://github.com/astral-sh/uv#installation).
-
-```bash
-brew install uv
-```
-
-```bash
-uv venv --python=3.12.3
-source .venv/bin/activate
-uv pip install . # base dependencies
-uv pip install '.[dev]' # development
-```
+Response format:
+- `predictions`: list of objects with `status` and `output_path`
 
 ## Authors
 
@@ -118,13 +48,22 @@ Any issues discovered through the use of this project should be filed as GitHub 
 
 ## License
 
-&copy; 2025 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License [https://databricks.com/db-license-source].  All included or referenced third party libraries are subject to the licenses set forth below.
+&copy; 2026 Databricks, Inc. All rights reserved. The source in this notebook is provided subject to the Databricks License [https://databricks.com/db-license-source].  All included or referenced third party libraries are subject to the licenses set forth below.
 
-| library                                | description             | license    | source                                              |
-|----------------------------------------|-------------------------|------------|-----------------------------------------------------|
-|docling|Document parsing and export|MIT|https://github.com/docling/docling|
-
-Docling has quite a few dependencies: python-bidi, pyclipper, mpmath, filetype, XlsxWriter, typing-extensions, tqdm, tifffile, tabulate, sympy, soupsieve, shellingham, Shapely, scipy, safetensors, rtree, rpds-py, regex, pyyaml, python-dotenv, pypdfium2, pygments, pyflakes, pillow, opencv-python-headless, ninja, networkx, mdurl, MarkupSafe, marko, lxml, lazy-loader, jsonref, fsspec, filelock, et-xmlfile, dill, deepsearch-glm, click, attrs, annotated-types, referencing, python-pptx, python-docx, pydantic-core, openpyxl, multiprocess, mpire, markdown-it-py, jsonlines, jinja2, imageio, huggingface_hub, beautifulsoup4, autoflake, torch, tokenizers, scikit-image, rich, pydantic, jsonschema-specifications, docling-parse, typer, transformers, torchvision, semchunk, pydantic-settings, jsonschema, easyocr, docling-ibm-models, docling-core, docling
+| library | description | license | source |
+|---|---|---|---|
+| docling | Document parsing and export | MIT | https://github.com/docling-project/docling |
+| mlflow | ML lifecycle management | Apache Software License | https://github.com/mlflow/mlflow |
+| databricks-sdk | Databricks SDK for Python | Apache Software License | https://github.com/databricks/databricks-sdk-py |
+| databricks-connect | Local Spark connectivity | Other/Proprietary License | https://pypi.org/project/databricks-connect/ |
+| databricks-vectorsearch | Vector search client | UNKNOWN | https://pypi.org/project/databricks-vectorsearch/ |
+| databricks-ai-bridge | Databricks AI bridge | Databricks License | https://pypi.org/project/databricks-ai-bridge/ |
+| onnxruntime | ONNX Runtime | MIT License | https://github.com/microsoft/onnxruntime |
+| pandas | Data analysis | BSD License | https://github.com/pandas-dev/pandas |
+| pillow | Imaging library | MIT-CMU License | https://github.com/python-pillow/Pillow |
+| pymssql | MS SQL Server driver | LGPL-2.1 | https://github.com/pymssql/pymssql |
+| requests | HTTP library | Apache Software License | https://github.com/psf/requests |
+| ipykernel | Jupyter kernel | BSD 3-Clause License | https://github.com/ipython/ipykernel |
 
 # Security Policy
 

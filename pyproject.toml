@@ -1,15 +1,14 @@
 [project]
 name = "multimodal-document-processing"
 version = "2.0.0"
-description = "Simplified docling-based or AI_PARSE_DOCUMENT multimodal processing"
+description = "Simplified docling notebook and serving workflows"
 requires-python = ">=3.12"
 
 dependencies = [
-    "docling"
+    "docling>=2.68.0"
 ]
 
-
-# Development
+[project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -19,13 +18,37 @@ dev = [
     "jupyter>=1.0.0",
     "ipykernel>=6.0.0",
 ]
+local = [
+    "databricks-ai-bridge",
+    "databricks-connect==17.2.3",
+    "databricks-sdk==0.49.0",
+    "databricks-vectorsearch>=0.30.0",
+    "docling",
+    "ipykernel>=6.0.0",
+    "mlflow>=3.4.0",
+    "onnxruntime",
+    "pandas==2.2.3",
+    "pillow==11.1.0",
+    "pymssql==2.3.8",
+    "requests==2.32.3",
+]
+serving = [
+    "databricks-ai-bridge",
+    "databricks-sdk==0.49.0",
+    "docling",
+    "mlflow>=3.4.0",
+    "onnxruntime",
+    "pandas==2.2.3",
+    "pillow==11.1.0",
+    "pymssql==2.3.8",
+]
 
 [tool.black]
 line-length = 88
 target-version = ["py312"]
 
 [tool.pytest.ini_options]
-pythonpath = [".", "src"]
+pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
@@ -41,7 +64,6 @@ addopts = [
     "--cov-report=xml",
 ]
 markers = [
-    "aiparse: AI_PARSE method tests",
     "docling: Docling method tests", 
     "serving: Serving endpoint tests",
     "app: Streamlit app tests",
@@ -57,7 +79,7 @@ markers = [
 # asyncio_mode = "auto"  # Disabled - not using async tests currently
 
 [tool.coverage.run]
-source = ["src", "."]
+source = ["."]
 omit = [
     "*/tests/*",
     "*/test_*",

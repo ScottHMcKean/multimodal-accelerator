@@ -1,0 +1,29 @@
+resources:
+  jobs:
+    docling_parse:
+      name: docling-parse
+      tasks:
+        - task_key: parse
+          notebook_task:
+            notebook_path: ../1_parse.ipynb
+
+    docling_serving:
+      name: docling-serving
+      tasks:
+        - task_key: serving
+          notebook_task:
+            notebook_path: ../2_serving.ipynb
+
+    docling_agentify:
+      name: docling-agentify
+      tasks:
+        - task_key: agentify
+          notebook_task:
+            notebook_path: ../3_agentify.ipynb
+
+    docling_evaluate:
+      name: docling-evaluate
+      tasks:
+        - task_key: evaluate
+          notebook_task:
+            notebook_path: ../4_evaluate.ipynb

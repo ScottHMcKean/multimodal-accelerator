@@ -1,0 +1,11 @@
+bundle:
+  name: multimodal-accelerator
+
+include:
+  - resources/jobs.yml
+
+targets:
+  dev:
+    workspace:
+      host: ${env.DATABRICKS_HOST}
+      root_path: /Workspace/Users/${workspace.current_user.userName}/multimodal-accelerator

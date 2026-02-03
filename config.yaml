@@ -1,0 +1,19 @@
+catalog: shm
+schema: multimodal
+input_volume: raw_docs
+output_volume: processed_docs
+local_input_path: ./raw_docs
+local_output_path: ./processed_docs
+parsed_markdown_table: parsed_markdown
+aiparse_outputs_table: aiparse_outputs
+serving_endpoint: docling-document-parser
+vector_search_endpoint: docling-vector-search
+embedding_endpoint: databricks-gte-large-en
+llm_endpoint: databricks-meta-llama-3-1-70b-instruct
+index_name: docling_markdown_index
+index_pipeline_type: TRIGGERED
+evaluate_sample_inputs:
+  - /Volumes/main/default/raw_docs/sample.pdf
+evaluate_query_text: maintenance schedule
+evaluate_max_compare: 3
+parse_download_sample: true
