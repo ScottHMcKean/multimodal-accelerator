@@ -54,6 +54,8 @@ Any issues discovered through the use of this project should be filed as GitHub 
 |---|---|---|---|
 | docling | Document parsing and export | MIT | https://github.com/docling-project/docling |
 | mlflow | ML lifecycle management | Apache Software License | https://github.com/mlflow/mlflow |
+| azure-core | Azure SDK core | MIT License | https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/core/azure-core |
+| azure-storage-file-datalake | Azure Data Lake storage client | MIT License | https://github.com/Azure/azure-sdk-for-python |
 | databricks-sdk | Databricks SDK for Python | Apache Software License | https://github.com/databricks/databricks-sdk-py |
 | databricks-connect | Local Spark connectivity | Other/Proprietary License | https://pypi.org/project/databricks-connect/ |
 | databricks-vectorsearch | Vector search client | UNKNOWN | https://pypi.org/project/databricks-vectorsearch/ |

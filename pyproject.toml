@@ -19,6 +19,8 @@ dev = [
     "ipykernel>=6.0.0",
 ]
 local = [
+    "azure-core==1.34.0",
+    "azure-storage-file-datalake==12.17.0",
     "databricks-ai-bridge",
     "databricks-connect==17.2.3",
     "databricks-sdk==0.49.0",
@@ -33,6 +35,8 @@ local = [
     "requests==2.32.3",
 ]
 serving = [
+    "azure-core==1.34.0",
+    "azure-storage-file-datalake==12.17.0",
     "databricks-ai-bridge",
     "databricks-sdk==0.49.0",
     "docling",

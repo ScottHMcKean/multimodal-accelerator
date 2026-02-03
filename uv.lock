@@ -202,6 +202,50 @@ wheels = [
 ]
 
 [[package]]
+name = "azure-core"
+version = "1.34.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "six" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/29/ff7a519a315e41c85bab92a7478c6acd1cf0b14353139a08caee4c691f77/azure_core-1.34.0.tar.gz", hash = "sha256:bdb544989f246a0ad1c85d72eeb45f2f835afdcbc5b45e43f0dbde7461c81ece", size = 297999, upload-time = "2025-05-01T23:17:27.59Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/9e/5c87b49f65bb16571599bc789857d0ded2f53014d3392bc88a5d1f3ad779/azure_core-1.34.0-py3-none-any.whl", hash = "sha256:0615d3b756beccdb6624d1c0ae97284f38b78fb59a2a9839bf927c66fbbdddd6", size = 207409, upload-time = "2025-05-01T23:17:29.818Z" },
+]
+
+[[package]]
+name = "azure-storage-blob"
+version = "12.28.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "cryptography" },
+    { name = "isodate" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/71/24/072ba8e27b0e2d8fec401e9969b429d4f5fc4c8d4f0f05f4661e11f7234a/azure_storage_blob-12.28.0.tar.gz", hash = "sha256:e7d98ea108258d29aa0efbfd591b2e2075fa1722a2fae8699f0b3c9de11eff41", size = 604225, upload-time = "2026-01-06T23:48:57.282Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/3a/6ef2047a072e54e1142718d433d50e9514c999a58f51abfff7902f3a72f8/azure_storage_blob-12.28.0-py3-none-any.whl", hash = "sha256:00fb1db28bf6a7b7ecaa48e3b1d5c83bfadacc5a678b77826081304bd87d6461", size = 431499, upload-time = "2026-01-06T23:48:58.995Z" },
+]
+
+[[package]]
+name = "azure-storage-file-datalake"
+version = "12.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "azure-storage-blob" },
+    { name = "isodate" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d4/a3/cb5c1863ffa755026d68bb3fc5da1c8375711357260abe58581331637dc5/azure_storage_file_datalake-12.17.0.tar.gz", hash = "sha256:3f65ed4724014e0845841ea34e96459b03fa515c3082524462a17d161368d145", size = 275045, upload-time = "2024-09-17T21:40:43.173Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/9b/6f68865c36f376c198f4b509b193a2d8a10e0c8a271266091814af2a11b3/azure_storage_file_datalake-12.17.0-py3-none-any.whl", hash = "sha256:5e96d6ba0f2ae61951e0880fd86a2a8037a52303e94560ebd6a7199d04cd7f38", size = 255694, upload-time = "2024-09-17T21:40:45.498Z" },
+]
+
+[[package]]
 name = "babel"
 version = "2.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1429,6 +1473,15 @@ wheels = [
 ]
 
 [[package]]
+name = "isodate"
+version = "0.7.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/54/4d/e940025e2ce31a8ce1202635910747e5a87cc3a6a6bb2d00973375014749/isodate-0.7.2.tar.gz", hash = "sha256:4cd1aa0f43ca76f4a6c6c0292a85f40b35ec2e43e315b59f06e6d32171a953e6", size = 29705, upload-time = "2024-10-08T23:04:11.5Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/aa/0aca39a37d3c7eb941ba736ede56d689e7be91cab5d9ca846bde3999eba6/isodate-0.7.2-py3-none-any.whl", hash = "sha256:28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15", size = 22320, upload-time = "2024-10-08T23:04:09.501Z" },
+]
+
+[[package]]
 name = "isoduration"
 version = "20.11.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2174,6 +2227,8 @@ dev = [
     { name = "ruff" },
 ]
 local = [
+    { name = "azure-core" },
+    { name = "azure-storage-file-datalake" },
     { name = "databricks-ai-bridge" },
     { name = "databricks-connect" },
     { name = "databricks-sdk" },
@@ -2188,6 +2243,8 @@ local = [
     { name = "requests" },
 ]
 serving = [
+    { name = "azure-core" },
+    { name = "azure-storage-file-datalake" },
     { name = "databricks-ai-bridge" },
     { name = "databricks-sdk" },
     { name = "docling" },
@@ -2200,6 +2257,10 @@ serving = [
 
 [package.metadata]
 requires-dist = [
+    { name = "azure-core", marker = "extra == 'local'", specifier = "==1.34.0" },
+    { name = "azure-core", marker = "extra == 'serving'", specifier = "==1.34.0" },
+    { name = "azure-storage-file-datalake", marker = "extra == 'local'", specifier = "==12.17.0" },
+    { name = "azure-storage-file-datalake", marker = "extra == 'serving'", specifier = "==12.17.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
     { name = "databricks-ai-bridge", marker = "extra == 'local'" },
     { name = "databricks-ai-bridge", marker = "extra == 'serving'" },

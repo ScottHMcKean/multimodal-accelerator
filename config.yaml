@@ -9,6 +9,7 @@ aiparse_outputs_table: aiparse_outputs
 serving_endpoint: docling-document-parser
 vector_search_endpoint: docling-vector-search
 embedding_endpoint: databricks-gte-large-en
+model_name: docling_model
 llm_endpoint: databricks-meta-llama-3-1-70b-instruct
 index_name: docling_markdown_index
 index_pipeline_type: TRIGGERED
@@ -17,3 +18,6 @@ evaluate_sample_inputs:
 evaluate_query_text: maintenance schedule
 evaluate_max_compare: 3
 parse_download_sample: true
+secret_scope_name: shm
+client_id_key: sp-id
+client_secret_key: sp-auth
